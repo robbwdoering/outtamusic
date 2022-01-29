@@ -36,7 +36,7 @@ app.use(bodyParser.urlencoded({ extended: true }));
 // We're creating two connections to the DB since one is mongoose and one is mongoDB.
 // Seems semi-unavoidable without giving up mongoose or rolling a custom mongoose session middleware adapter
 // NOTE: This needs to be done before the routers/models are imported
-mongoose.connect(process.env.MONGODB_URL, { useNewUrlParser: true, useUnifiedTopology: true });
+mongoose.connect(process.env.MONGO_URL, { useNewUrlParser: true, useUnifiedTopology: true });
 
 // ----
 // MAIN
@@ -46,7 +46,7 @@ const { setupHttpAccessControl, handleError, logRequest } = require('./middlewar
 // Session middleware, backed by a second connection to the MongoDB
 app.use(
   session({
-    store: MongoStore.create({ mongoUrl: process.env.MONGODB_URL }),
+    store: MongoStore.create({ mongoUrl: process.env.MONGO_URL }),
     secret: process.env.GOOGLE_CLIENT_SECRET,
     resave: false,
     saveUninitialized: true,

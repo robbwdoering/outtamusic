@@ -44,7 +44,7 @@ module.exports.validateEnv = () => {
   return (
     keys.includes('API_IP') &&
     keys.includes('CLIENT_IP') &&
-    keys.includes('MONGODB_URL') &&
+    keys.includes('MONGO_URL') &&
     keys.includes('NODE_ENV') &&
     keys.includes('PORT')
   );
