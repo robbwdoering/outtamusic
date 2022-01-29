@@ -1,12 +1,14 @@
 .app-root .app-header {
-    width: 100%;
     padding: 15px 20px;
+    display: flex;
+    align-items: center;
+    height: 32px;
 }
 
 .app-root .app-header  button.app-header-menu-button {
-    position: fixed;
-    right: 25px;
-    top: 12px;
+    /*position: fixed;*/
+    /*right: 25px;*/
+    /*top: 12px;*/
 }
 
 .MuiPopover-root.app-header-menu .MuiPaper-root {
@@ -15,11 +17,16 @@
     top: 45px !important;
 }
 
+.app-root .app-header  button.app-header-menu-button {
+    padding-top: 9px;
+}
+
 .app-root .app-header  button.app-header-menu-button svg {
     fill: #fff !important;
 }
 
 .app-root .app-header .app-title-container {
+    flex-grow: 1;
     display: flex;
     width: 9rem;
     font-size: 1.25rem;
@@ -62,14 +69,22 @@
 .app-root button.MuiButton-root.MuiButton-outlined {
 }
 
+.app-root .app-header button.MuiButton-root.MuiButton-contained {
+    height: 1.75rem;
+}
+
 .app-root button.MuiButton-root.MuiButton-contained {
     background-color: #1db954;
     font-weight: bold;
     vertical-align: middle;
+    padding-top: 8px;
 }
 
 .app-root button.MuiButton-root svg.MuiSvgIcon-root {
     height: 1.5rem;
+    margin-top: -4px;
+    margin-left: 5px;
+    margin-right: -5px;
 }
 
 .app-root .app-body {

@@ -26,10 +26,11 @@
     "jwks-rsa": "^1.12.3",
     "jwt-decode": "^3.1.2",
     "mongoose": "^6.1.8",
-    "node-fetch": "^2.6.7"
+    "node-fetch": "^2.6.7",
+    "random-word-slugs": "^0.1.6"
   },
   "engines": {
-      "node": "17.4.0",
-      "npm": "8.3.1"
+    "node": "17.4.0",
+    "npm": "8.3.1"
   }
 }

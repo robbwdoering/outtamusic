@@ -3,3 +3,8 @@ export const spotifyAuthInfo = {
     redirect_uri: process.env.REACT_APP_URI + '/callback',
     scope: 'user-read-private user-read-email'
 }
+
+export const Pages = [
+    'create',
+    'dashboard'
+]

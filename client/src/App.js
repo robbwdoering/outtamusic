@@ -19,7 +19,8 @@ import GroupIcon from '@mui/icons-material/Group';
 import * as d3 from 'd3';
 import Spotify from 'spotify-web-api-js';
 
-import { spotifyAuthInfo } from './constants';
+import Dashboard from './Dashboard';
+import { spotifyAuthInfo, Pages } from './constants';
 
 /**
  * REQUIREMENTS
@@ -80,7 +81,7 @@ function App() {
      * authentication API. If so, picks up where we left off with joining or creating.
      */
     const handleAuthCallback = async () => {
-        const params = new URLSearchParams(window.location.search);
+        const params = new URLSearchParams(window.location.hash.substring(1));
         let newPath;
         if (params.get('error')) {
             console.error("Failed to authenticate.");
@@ -96,6 +97,7 @@ function App() {
                 expires_in: params.get('expires_in')
             }));
             spotify.current.setAccessToken(access_token);
+            console.log("USING ACCESS TOKEN", access_token)
 
             // Get info from Spotify on current user
             await spotify.current.getMe(null, handleProfileInfo);
@@ -108,17 +110,18 @@ function App() {
             }
         }
 
-        window.location.assign(newPath);
+        window.history.pushState('N/A', 'N/A', newPath);
     }
 
     const processPath = async () => {
         if (window.location.pathname.match(/\/callback$/g)) {
             await handleAuthCallback();
-        } else if (window.location.pathname === "create") {
-            console.log("LOGGED CREATE")
-            setLayoutState(s => Object.assign({}, s, { curPage: 'Create' }))
+        } else if (Pages.includes(window.location.pathname)) {
+            console.log("NAVIGATING", window.location.pathname)
+            setLayoutState(s => Object.assign({}, s, { curPage: window.location.pathname }))
         } else {
-            // Else this was opened to a group page
+            // Else this was opened to a group page - show it
+            setLayoutState(s => Object.assign({}, s, { curPage: 'dashboard' }))
         }
     }
 
@@ -129,7 +132,7 @@ function App() {
      */
     const handleProfileInfo = (err, body) => {
         if (err) {
-            console.error(err);
+            console.error('handleProfileInfo', err, body);
             return;
         }
 
@@ -236,17 +239,12 @@ function App() {
                     <span>outtamusic</span>
                 </div>
 
+                {!isSplash && <SpotifyAuthButton />}
+
                 <Button className="app-header-menu-button" onClick={openMenu} >
                     <MenuIcon />
                 </Button>
 
-                {authState.id !== undefined && (
-                    <Button>
-                        <CheckIcon />
-                        Logged In
-                    </Button>
-                )}
-                {!authState.id && !isSplash && <SpotifyAuthButton />}
                 <div className={"app-header-menu-container"}>
                     <Menu
                         id="basic-menu"
@@ -285,25 +283,6 @@ function App() {
            </div>
        );
     }
-
-
-    const Dashboard = props => {
-        return (
-            <div className={"dashboard-container"}>
-                <div className={'group-admin-container'}>
-                    <div className={'member-list'}>
-                    </div>
-                    <div className={'url-container'}>
-                        https://outtamusic.com/BronzeWombat
-                        <Button className={"share-button"} variant={"contained"}>
-                            <ShareIcon />
-                            Share Invite
-                        </Button>
-                    </div>
-                </div>
-            </div>
-        );
-    };
 
     const AppModal = props => {
         const [formState, setFormState] = useState({});
@@ -384,7 +363,7 @@ function App() {
     // LIFECYCLE
     // ---------
 
-    useEffect(processPath, []);
+    useEffect(processPath, [window.location.pathname]);
 
     const path = window.location.pathname;
 
