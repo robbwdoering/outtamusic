@@ -1,0 +1,104 @@
+.app-root .app-header {
+    width: 100%;
+    padding: 15px 20px;
+}
+
+.app-root .app-header  button.app-header-menu-button {
+    position: fixed;
+    right: 25px;
+    top: 12px;
+}
+
+.MuiPopover-root.app-header-menu .MuiPaper-root {
+    left: auto !important;
+    right: 20px !important;
+    top: 45px !important;
+}
+
+.app-root .app-header  button.app-header-menu-button svg {
+    fill: #fff !important;
+}
+
+.app-root .app-header .app-title-container {
+    display: flex;
+    width: 9rem;
+    font-size: 1.25rem;
+}
+
+.app-root .app-header .app-title-container.splash {
+    font-size: 2.25rem;
+    width: 25rem;
+}
+
+.app-root .app-header .app-title-container > span {
+    display: inline-block;
+    flex-grow: 1;
+    overflow: hidden;
+    transition: width 0.5s;
+}
+
+.app-root .app-header .app-title-container > span#feeling {
+    width: 0px;
+    flex-grow: 0;
+}
+.app-root .app-header .app-title-container.splash > span#feeling {
+    width: min-content;
+    flex-grow: 1;
+}
+
+.app-root .app-body {
+    max-width: 1200px;
+    padding: 10px
+}
+
+.app-root .app-footer {
+    color: #999;
+    position: fixed;
+    bottom: 10px;
+    width: 100%;
+    text-align: center;
+}
+
+.app-root button.MuiButton-root.MuiButton-outlined {
+}
+
+.app-root button.MuiButton-root.MuiButton-contained {
+    background-color: #1db954;
+    font-weight: bold;
+    vertical-align: middle;
+}
+
+.app-root button.MuiButton-root svg.MuiSvgIcon-root {
+    height: 1.5rem;
+}
+
+.app-root .app-body {
+    display: flex;
+    margin: 0 auto;
+}
+
+.app-root .app-body .splash-container {
+    margin: 100px auto;
+    display: inline-block;
+    text-align: center;
+}
+
+.app-root .app-body .splash-container h3  {
+    font-weight: normal !important;
+}
+
+.app-root .app-body .splash-container a.button-caption {
+    display: block;
+    color: #ccc;
+    font-weight: bold;
+    margin-top: 5px;
+    font-size: 0.7rem;
+    cursor: pointer;
+}
+
+.MuiModal-root .MuiPaper-root {
+    width: 600px;
+    max-width: 100%;
+    margin: 50px auto;
+    padding: 5px 15px;
+}
