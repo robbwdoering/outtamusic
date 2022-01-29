@@ -43,7 +43,7 @@ function App() {
     // ----------
     const [lastUpdated, setLastUpdated] = useState(Date.now());
     const [layoutState, setLayoutState] = useState({
-        curPage: "Splash",
+        curPage: "splash",
         curModal: null,
     });
     const [authState, setAuthState] = useState({
@@ -216,7 +216,7 @@ function App() {
         </Button>
     ) : (
         <Button variant="contained" onClick={initLogin}>
-            LOG IN VIA SPOTIFY
+            <span>LOG IN VIA SPOTIFY</span>
             <LoginIcon />
         </Button>
     );
@@ -232,7 +232,7 @@ function App() {
     );
 
     const Header = props => {
-        const isSplash = layoutState.curPage === "Splash";
+        const isSplash = layoutState.curPage === "splash";
         return (
             <div className={"app-header"}>
                 <div className={`app-title-container`}>
@@ -362,7 +362,6 @@ function App() {
     // ---------
     // LIFECYCLE
     // ---------
-
     useEffect(processPath, [window.location.pathname]);
 
     const path = window.location.pathname;
@@ -371,9 +370,9 @@ function App() {
         <div id="app-root" className="app-root">
             <Header />
             <div className={"app-body"}>
-                {layoutState.curPage === "Splash" && <Splash />}
-                {layoutState.curPage === "Create" && <Create />}
-                {layoutState.curPage === "Dashboard" && <Dashboard />}
+                {layoutState.curPage === "splash" && <Splash />}
+                {layoutState.curPage === "create" && <Create />}
+                {layoutState.curPage === "dashboard" && <Dashboard />}
             </div>
             <div className={"app-footer"}>
                 This project is <a href={'https://github.com/robbwdoering/outtamusic'}>open source</a> and not affiliated with Spotify.

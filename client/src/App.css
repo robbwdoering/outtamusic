@@ -55,7 +55,10 @@
 
 .app-root .app-body {
     max-width: 1200px;
-    padding: 10px
+    padding: 10px;
+    display: flex;
+    justify-content: center;
+    margin: 0 auto;
 }
 
 .app-root .app-footer {
@@ -78,18 +81,15 @@
     font-weight: bold;
     vertical-align: middle;
     padding-top: 8px;
+    height: 1.75rem;
+    font-size: 0.7rem;
 }
 
-.app-root button.MuiButton-root svg.MuiSvgIcon-root {
+.app-root button.MuiButton-root svg.MuiSvgIcon-root:nth-child(2) {
     height: 1.5rem;
     margin-top: -4px;
     margin-left: 5px;
     margin-right: -5px;
-}
-
-.app-root .app-body {
-    display: flex;
-    margin: 0 auto;
 }
 
 .app-root .app-body .splash-container {
@@ -116,4 +116,28 @@
     max-width: 100%;
     margin: 50px auto;
     padding: 5px 15px;
+}
+
+.dashboard-container {
+
+    max-width: 100%;
+    margin: 0 20px;
+}
+
+.dashboard-container .group-admin-container {
+    border: 2px solid #ffffff44;
+    padding: 10px;
+}
+
+.dashboard-container .group-admin-container h3 {
+    margin: 5px 0;
+
+}
+
+div.list-row span.list-label {
+    font-size: 0.8rem;
+    color: #ccc;
+    weight: bold;
+    display: block;
+    margin-bottom: -3px;
 }

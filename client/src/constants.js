@@ -5,6 +5,7 @@ export const spotifyAuthInfo = {
 }
 
 export const Pages = [
+    'splash',
     'create',
     'dashboard'
 ]
