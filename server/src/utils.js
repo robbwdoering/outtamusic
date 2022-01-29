@@ -40,6 +40,7 @@ module.exports.sessionAuth = sessionAuth;
 
 module.exports.validateEnv = () => {
   const keys = Object.keys(process.env);
+  console.log(process.env)
   return (
     keys.includes('API_IP') &&
     keys.includes('CLIENT_IP') &&
