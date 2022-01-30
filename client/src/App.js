@@ -1,6 +1,7 @@
 import './App.css';
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import {
+    IconButton,
     Button,
     Menu,
     MenuItem,
@@ -25,7 +26,7 @@ import { spotifyAuthInfo, Pages } from './constants';
 /**
  * REQUIREMENTS
  *
- * - Splash Page
+ * - Index Page
  *    User views a spiel, can click a log in button.
  *    Once they chose to log in, ask for choice b/w creation and joining
  * - Creation Pipeline
@@ -35,7 +36,7 @@ import { spotifyAuthInfo, Pages } from './constants';
  */
 
 // Get the IP of the server to make requests against, or default to a test server on localhost
-const api_ip = process.env.REACT_APP_API_IP || 'http://localhost:5000';
+const api_ip = process.env.REACT_APP_SERVER_URL || 'http://localhost:5000';
 
 function App() {
     // ----------
@@ -43,14 +44,16 @@ function App() {
     // ----------
     const [lastUpdated, setLastUpdated] = useState(Date.now());
     const [layoutState, setLayoutState] = useState({
-        curPage: "splash",
+        curPage: "index",
         curModal: null,
     });
     const [authState, setAuthState] = useState({
         access_token: null,
         token_type: null,
         expires_in: null,
-        state: null
+        state: null,
+        id: null,
+        name: null
     });
     const [menuAnchor, setMenuAnchor] = useState(null);
 
@@ -59,6 +62,11 @@ function App() {
     // ----------------
     // MEMBER FUNCTIONS
     // ----------------
+    const navigate = (path) => {
+        window.history.pushState('N/A', 'N/A', path);
+        setLastUpdated(Date.now());
+    }
+    
     /**
      * Step 1 in the Implicit Grant authentication flow.
      */
@@ -68,9 +76,11 @@ function App() {
         url += '&client_id=' + encodeURIComponent(spotifyAuthInfo.client_id);
         url += '&scope=' + encodeURIComponent(spotifyAuthInfo.scope);
         url += '&redirect_uri=' + encodeURIComponent(spotifyAuthInfo.redirect_uri);
-        url += '&state=' + encodeURIComponent('BronzeWombat');
+        const path = window.location.pathname.substring(1);
+        if (path.length > 0) {
+            url += '&state=' + encodeURIComponent(path);
+        }
 
-        console.log("initLogin", url);
         window.location.href = url;
     };
 
@@ -97,52 +107,57 @@ function App() {
                 expires_in: params.get('expires_in')
             }));
             spotify.current.setAccessToken(access_token);
-            console.log("USING ACCESS TOKEN", access_token)
-
-            // Get info from Spotify on current user
-            await spotify.current.getMe(null, handleProfileInfo);
 
             // Determine where to redirect, depending on if they're joining or creating
             if (state && state.length > 0) {
-                newPath = "/" + params.get('state');
+                newPath = "/" + state;
             } else {
-                newPath = "/create";
+                newPath = "/";
             }
         }
 
-        window.history.pushState('N/A', 'N/A', newPath);
+        navigate(newPath);
     }
 
-    const processPath = async () => {
-        if (window.location.pathname.match(/\/callback$/g)) {
-            await handleAuthCallback();
-        } else if (Pages.includes(window.location.pathname)) {
-            console.log("NAVIGATING", window.location.pathname)
-            setLayoutState(s => Object.assign({}, s, { curPage: window.location.pathname }))
-        } else {
-            // Else this was opened to a group page - show it
-            setLayoutState(s => Object.assign({}, s, { curPage: 'dashboard' }))
+    /**
+     * Step 3 in the Implicit Grant authentication flow.
+     * Gets profile information for this user from spotify, and starts a session with the server.
+     */
+    const finishAuthentication = async () => {
+        if (authState.access_token) {
+            // Get info from Spotify on current user
+            await query('/users/me', 'GET').then(async (data) => {
+                if (data.err) {
+                    console.error('finishAuthentication', data.err);
+                    return;
+                }
+
+                console.log('finishAuthentication', data);
+                setAuthState(s => Object.assign({}, s, data));
+            });
         }
     }
 
     /**
-     * Process incoming data from the Spotify API describing the current user.
-     * @param err defined if there was a problem
-     * @param body the body of the HTTP response
+     * This important method is called whenever the path changes, and decides
+     * what page to show. This is basically the view router for the project.
      */
-    const handleProfileInfo = (err, body) => {
-        if (err) {
-            console.error('handleProfileInfo', err, body);
-            return;
+    const processPath = async () => {
+        const path = window.location.pathname.substring(1);
+        console.log("[processPath]", path);
+        if (path.length === 0) {
+            // Index Page
+            setLayoutState(s => Object.assign({}, s, { curPage: 'index' }))
+        } else if (path === 'callback') {
+            // Auth callback
+            await handleAuthCallback();
+        // } else if (Pages.includes(path)) {
+        //     // Any named page
+        //     setLayoutState(s => Object.assign({}, s, { curPage: path }))
+        } else {
+            // Else this was opened to a group page - show it
+            setLayoutState(s => Object.assign({}, s, { curPage: 'dashboard' }))
         }
-
-        console.log('handleProfileInfo', body);
-        setAuthState(s => Object.assign({}, s, {
-            email: body.email,
-            name: body.display_name,
-            id: body.id,
-            image: body.images.length ? body.images[0].url : null
-        }));
     }
 
     /**
@@ -203,6 +218,55 @@ function App() {
      */
     const createGroup = (event) => {
         console.log("[createGroup]", authState);
+        query('/groups', 'POST')
+            .then(data => {
+                if (data.error) {
+                    console.error(data.error);
+                    return;
+                }
+
+                navigate('/'+data.name);
+            });
+    }
+
+    /**
+     * 
+     * @param path the path on the server
+     * @param method the HTTP verb to use
+     * @param body [optional] JSON body to attach to the message
+     * @return [PROMISE] Either JSON response data, or something with an 'error' field
+     */
+    const query = async (path, method, body) => {
+        const fetchOptions = {
+            method: method,
+            credentials: 'include',
+            headers: {
+                Accept: 'application/json',
+                'Content-Type': 'application/json',
+                // 'Access-Control-Allow-Credentials': 'true'
+            }
+        }
+        // Add authorization if we're logged in, otherwise assume this is a public endpoint
+        if (authState.access_token) {
+            fetchOptions.headers.Authorization = 'Bearer ' + authState.access_token;
+        }
+        
+        // Add a body for non-GET requests
+        if (method !== 'GET' && body) {
+            fetchOptions.body = JSON.stringify(body);
+        }
+        
+        console.log("[query]", process.env.REACT_APP_SERVER_URL + path, method)
+
+        return fetch(process.env.REACT_APP_SERVER_URL + path, fetchOptions)
+            .then(response => {
+                if (!response.ok) {
+                    return { error: `status ${response.status}` };
+                }
+
+                return response.json();
+            })
+            .catch(err => ({ error: err }));
     }
 
 
@@ -211,36 +275,110 @@ function App() {
     // -----------------
     const SpotifyAuthButton = props => authState.access_token ? (
         <Button variant="contained">
-            <AccountCircleIcon />
-            {authState.name} Logged In
+            <span>{authState.name}</span>
+            <AccountCircleIcon fontSize={"small"} />
         </Button>
     ) : (
         <Button variant="contained" onClick={initLogin}>
             <span>LOG IN VIA SPOTIFY</span>
-            <LoginIcon />
+            <LoginIcon fontSize={"small"}  />
         </Button>
     );
 
-    const Splash = props => (
-        <div className={"splash-container"}>
-            <h3 id={'first'}>feeling outta music?</h3>
-            <h3 id={'second'}>tired of Spotify's guesses?</h3>
-            <h3 id={'third'}>do your friends listen to good music?</h3>
-            <SpotifyAuthButton />
-            <a className={"button-caption"} onClick={openExplainModal}>WHY?</a>
-        </div>
-    );
+    const Index = props => {
+        const [existingGroups, setExistingGroups] = useState(null);
+        const [loading, setLoading] = useState(false);
+        
+        // Get group data for authenticated users
+        useEffect(async () => {
+           if (authState.access_token && authState.id && !existingGroups && !loading) {
+               setLoading(true);
+               query('/groups/multi', 'POST', { groups: [...authState.groups] })
+                   .then(data => {
+                       if (data.error) {
+                           console.error("Failed to authenticate.", data.error);
+                       }
+
+                       setExistingGroups(data.groups);
+                       setLoading(false);
+                   });
+           }
+        }, [authState.access_token, authState.id]);
+        
+        if (!authState.access_token) {
+            return (
+                <div className={"noauth-index-container"}>
+                    <h3 id={'first'}>feeling outta music?</h3>
+                    <h3 id={'second'}>tired of Spotify's guesses?</h3>
+                    <h3 id={'third'}>do your friends listen to good music?</h3>
+                    <SpotifyAuthButton/>
+                    <a className={"button-caption"} onClick={openExplainModal}>WHY?</a>
+                </div>
+            );
+        } else {
+            return (
+                <div className="auth-index-container">
+                    <h4>This tool works by collecting the listening habits of a group.</h4>
+                    <h4>Do you want try it out with a new group, or join one you've already been invited to?</h4>
+                    
+                    <div className={"mode-choice-container"}>
+                        <div>
+                            <IconButton size="large" variant="contained" className="create-mode-choice-button" onClick={createGroup}>
+                                <EmojiPeopleIcon/>
+                            </IconButton>
+                            <span>Create</span>
+                        </div>
+                        <div>
+                            <IconButton size="large" variant="contained" className="create-mode-choice-button" onClick={openJoinModal}>
+                                <GroupIcon/>
+                            </IconButton>
+                            <span>Join</span>
+                        </div>
+                    </div>
+                    {existingGroups && (
+                        <React.Fragment>
+                            <h3>Existing Groups</h3>
+                            <div className={"existing-groups-container"}>
+                                {existingGroups.map(group => (
+                                    <Paper className={"group-card-container"}>
+                                        <div className={'list-row'}>
+                                            <span className={"list-label"}>NAME</span>
+                                            <span>{group.name}</span>
+                                        </div>
+                                        <div className={'list-row'}>
+                                            <span className={"list-label"}>MEMBERS</span>
+                                            <span>
+                                                {group.members.reduce((acc, member, i) => (
+                                                    acc + (i ? ', ' : '') + member.name
+                                                ), '')}
+                                            </span>
+                                        </div>
+                                        <div className={'list-row'}>
+                                            <span className={"list-label"}>MATCH SCORE</span>
+                                            <span>
+                                                {group.matchScore}
+                                            </span>
+                                        </div>
+                                    </Paper>
+                                ))}
+                            </div>
+                        </React.Fragment>
+                    )}
+                </div>
+            );
+        }
+    };
 
     const Header = props => {
-        const isSplash = layoutState.curPage === "splash";
+        const isIndex = layoutState.curPage === "index";
         return (
             <div className={"app-header"}>
                 <div className={`app-title-container`}>
-                    <span>outtamusic</span>
+                    <div onClick={() => navigate('/')}>outtamusic</div>
                 </div>
 
-                {!isSplash && <SpotifyAuthButton />}
-
+                {(!isIndex || authState.id) && <SpotifyAuthButton />}
+                
                 <Button className="app-header-menu-button" onClick={openMenu} >
                     <MenuIcon />
                 </Button>
@@ -262,33 +400,11 @@ function App() {
         );
     };
 
-    const Create = props => {
-       const [mode, setMode] = useState(null);
-       return (
-           <div className="create-container">
-               <h4>This tool works by collecting the listening habits of a group.</h4>
-               <h3>Do you want try it out with a new group, or join one you've already been invited to?</h3>
-               <div className={"mode-choice-container"}>
-                   <Button variant="contained" className="create-mode-choice-button" onClick={createGroup}>
-                       <EmojiPeopleIcon />
-                   </Button>
-                   <span>Create</span>
-               </div>
-               <div className={"mode-choice-container"}>
-                   <Button variant="contained" className="create-mode-choice-button" onClick={openJoinModal}>
-                       <GroupIcon />
-                   </Button>
-                   <span>Join</span>
-               </div>
-           </div>
-       );
-    }
-
     const AppModal = props => {
         const [formState, setFormState] = useState({});
 
         const handleGroupNameChange = (event) => {
-            const [name, value] = event.target;
+            const { name, value } = event.target;
             setFormState(s => Object.assign({}, s, { [name]: value }))
         };
 
@@ -363,6 +479,7 @@ function App() {
     // LIFECYCLE
     // ---------
     useEffect(processPath, [window.location.pathname]);
+    useEffect(finishAuthentication, [authState.access_token])
 
     const path = window.location.pathname;
 
@@ -370,9 +487,8 @@ function App() {
         <div id="app-root" className="app-root">
             <Header />
             <div className={"app-body"}>
-                {layoutState.curPage === "splash" && <Splash />}
-                {layoutState.curPage === "create" && <Create />}
-                {layoutState.curPage === "dashboard" && <Dashboard />}
+                {layoutState.curPage === "index" && <Index />}
+                {layoutState.curPage === "dashboard" && <Dashboard query={query}/>}
             </div>
             <div className={"app-footer"}>
                 This project is <a href={'https://github.com/robbwdoering/outtamusic'}>open source</a> and not affiliated with Spotify.

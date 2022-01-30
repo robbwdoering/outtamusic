@@ -32,6 +32,10 @@
     font-size: 1.25rem;
 }
 
+.app-root .app-header .app-title-container > div {
+    cursor: pointer;
+}
+
 .app-root .app-header .app-title-container.splash {
     font-size: 2.25rem;
     width: 25rem;
@@ -92,17 +96,17 @@
     margin-right: -5px;
 }
 
-.app-root .app-body .splash-container {
+.app-root .app-body .noauth-index-container {
     margin: 100px auto;
     display: inline-block;
     text-align: center;
 }
 
-.app-root .app-body .splash-container h3  {
+.app-root .app-body .noauth-index-container h3  {
     font-weight: normal !important;
 }
 
-.app-root .app-body .splash-container a.button-caption {
+.app-root .app-body .noauth-index-container a.button-caption {
     display: block;
     color: #ccc;
     font-weight: bold;
@@ -140,4 +144,43 @@ div.list-row span.list-label {
     weight: bold;
     display: block;
     margin-bottom: -3px;
+}
+
+.auth-index-container {
+}
+
+.auth-index-container .mode-choice-container {
+    display: flex;
+    flex-direction: row;
+    justify-content: center;
+}
+
+.auth-index-container .mode-choice-container > div {
+    margin: 10px 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-items: center;
+    width: 150px;
+}
+
+.auth-index-container .mode-choice-container .MuiIconButton-root {
+    background-color: #1db954;
+}
+.auth-index-container .mode-choice-container span {
+    margin-top: 3px;
+    font-size: 1.5rem;
+}
+
+.auth-index-container .existing-groups-container {
+    width: 100%;
+    display: flex;
+}
+
+.auth-index-container .existing-groups-container .group-card-container {
+    padding: 10px;
+}
+
+.auth-index-container .existing-groups-container .group-card-container .list-row {
+    margin: 5px 0;
 }

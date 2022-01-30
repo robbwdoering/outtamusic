@@ -15,14 +15,16 @@ import ShareIcon from "@mui/icons-material/Share";
 import VisibilityIcon from "@mui/icons-material/Visibility";
 import KeyboardArrowUpIcon from "@mui/icons-material/KeyboardArrowUp";
 import KeyboardArrowDownIcon from "@mui/icons-material/KeyboardArrowDown";
-import React, {useState, useMemo} from "react";
+import React, {useState, useMemo, useEffect} from "react";
 
 const Dashboard = props => {
+    const { query } = props;
+    
     // ----------
     // STATE INIT
     // ----------
     const [groupState, setGroupState] = useState({
-        groupName: window.location.pathname,
+        groupName: window.location.pathname.substring(1),
         members: [],
         
     });
@@ -39,6 +41,24 @@ const Dashboard = props => {
     const generateTrends = () => {
         return [];
     };
+
+    /**
+     * Queries the server for data tied to this group.
+     */
+    const fetchGroupData = async () => {
+        if (!groupState.groupName || groupState.groupName.length === 0) {
+            return;
+        }
+        
+        const data = await query('/groups/'+groupState.groupName, 'GET');
+        if (data.error) {
+            console.log('[fetchGroupData] ERROR', data.error)
+            return;
+        }
+        
+        console.log('[fetchGroupData]', data)
+    }
+    
 
     const StatRow = props => {
         const { name, values } = props.row;
@@ -98,6 +118,8 @@ const Dashboard = props => {
     // LIFECYCLE
     // ---------
     const trends = useMemo(generateTrends, []);
+    
+    useEffect(fetchGroupData, [groupState.groupName]);
 
     return (
         <div className={"dashboard-container"}>
@@ -111,7 +133,7 @@ const Dashboard = props => {
                     <span className={"list-contents"}> https://outtamusic.com/BronzeWombat </span>
                     <Button className={"share-button"} variant={"contained"}>
                         <span>Share Invite</span>
-                        <ShareIcon />
+                        <ShareIcon fontSize={"small"} />
                     </Button>
                 </div>
                 <div className={'list-row'}>

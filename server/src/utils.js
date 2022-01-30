@@ -9,41 +9,17 @@ const jwtAuthz = require('express-jwt-authz');
 const jwksRsa = require('jwks-rsa');
 const { OAuth2Client } = require('google-auth-library');
 const { GoogleSpreadsheet } = require('google-spreadsheet');
+const fetch = require('node-fetch');
 
 const { UserModel, ConfigStateModel } = require('./models');
-const {defaultSheetConfig} = require("./constants");
-
-const sessionAuth = async (req, res, next) => {
-  const { id } = req.session;
-
-  if (!id) {
-    return res.status(401).send({ message: 'User not authenticated.' });
-  }
-
-  // Get the _id of this user
-  const foundUser = await UserModel.findOne({ id }).exec();
-  if (!foundUser || !foundUser._id) {
-    return res.status(401).send({ message: 'User not registered.' });
-  }
-
-  req.session._id = foundUser._id.toString();
-
-  if (foundUser.idExpiresAt < (Date.now() / 1000)) {
-    delete req.session.googleId;
-
-    return res.status(401).send({ message: 'User token expired.' });
-  }
-
-  next();
-};
-module.exports.sessionAuth = sessionAuth;
+const { SPOTIFY_URL } = require("./constants");
+const url = require("url");
 
 module.exports.validateEnv = () => {
   const keys = Object.keys(process.env);
-  console.log(process.env)
   return (
-    keys.includes('API_IP') &&
-    keys.includes('CLIENT_IP') &&
+    keys.includes('API_URL') &&
+    keys.includes('CLIENT_URL') &&
     keys.includes('MONGO_URL') &&
     keys.includes('NODE_ENV') &&
     keys.includes('PORT')
