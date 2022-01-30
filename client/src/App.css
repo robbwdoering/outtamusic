@@ -89,6 +89,10 @@
     font-size: 0.7rem;
 }
 
+.app-root button.MuiButton-root.MuiButton-contained.Mui-disabled {
+    background-color: #7e8b83;
+}
+
 .app-root button.MuiButton-root svg.MuiSvgIcon-root:nth-child(2) {
     height: 1.5rem;
     margin-top: -4px;
@@ -122,6 +126,12 @@
     padding: 5px 15px;
 }
 
+.MuiModal-root .MuiPaper-root .form-container {
+    display: flex;
+    flex-direction: row;
+    justify-content: center;
+}
+
 .dashboard-container {
 
     max-width: 100%;
@@ -135,7 +145,14 @@
 
 .dashboard-container .group-admin-container h3 {
     margin: 5px 0;
+}
 
+.dashboard-container .group-admin-container button:last-child {
+    float: right
+}
+
+div.list-row {
+    margin: 10px 0;
 }
 
 div.list-row span.list-label {

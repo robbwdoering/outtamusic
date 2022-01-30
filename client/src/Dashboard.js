@@ -18,18 +18,17 @@ import KeyboardArrowDownIcon from "@mui/icons-material/KeyboardArrowDown";
 import React, {useState, useMemo, useEffect} from "react";
 
 const Dashboard = props => {
-    const { query } = props;
-    
+    const { isAuthenticated, query, openJoinModal, userId } = props;
+
     // ----------
     // STATE INIT
     // ----------
     const [groupState, setGroupState] = useState({
-        groupName: window.location.pathname.substring(1),
+        name: window.location.pathname.substring(1),
         members: [],
-        
     });
-    
-    
+    const [showPassword, setShowPassword] = useState(false);
+
     // ----------------
     // MEMBER FUNCTIONS
     // ----------------
@@ -46,20 +45,29 @@ const Dashboard = props => {
      * Queries the server for data tied to this group.
      */
     const fetchGroupData = async () => {
-        if (!groupState.groupName || groupState.groupName.length === 0) {
+        if (!groupState.name || groupState.name.length === 0 || !userId) {
             return;
         }
         
-        const data = await query('/groups/'+groupState.groupName, 'GET');
+        const data = await query('/groups/'+groupState.name, 'GET');
         if (data.error) {
             console.log('[fetchGroupData] ERROR', data.error)
             return;
         }
-        
-        console.log('[fetchGroupData]', data)
-    }
-    
 
+        console.log(data.members);
+        console.log('[fetchGroupData]', data, userId, isAuthenticated, data.members.find(member => member.id === userId))
+        setGroupState(s => Object.assign({}, s, data, {
+            iAmMember: isAuthenticated && data.members.find(member => member.id === userId)
+        }));
+    }
+
+    const shareInvite = () => {
+    }
+
+    // -----------------
+    // NESTED COMPONENTS
+    // -----------------
     const StatRow = props => {
         const { name, values } = props.row;
         const [open, setOpen] = useState(false);
@@ -113,14 +121,23 @@ const Dashboard = props => {
         );
     }
 
+    const generatePasscodeStr = () => {
+        console.log("[generatePasscodeStr]", groupState.passcode, showPassword)
+        if (groupState.passcode && groupState.iAmMember) {
+            return showPassword ? groupState.passcode : Array((''+groupState.passcode).length+1).join('*')
+        }
+        return "*******";
+    }
 
     // ---------
     // LIFECYCLE
     // ---------
     const trends = useMemo(generateTrends, []);
+    const passcodeStr = useMemo(generatePasscodeStr, [groupState.passcode, groupState.iAmMember, showPassword])
     
-    useEffect(fetchGroupData, [groupState.groupName]);
+    useEffect(fetchGroupData, [groupState.name, userId]);
 
+    console.log("[Dashboard] ", userId);
     return (
         <div className={"dashboard-container"}>
             <div className={'group-admin-container'}>
@@ -130,18 +147,29 @@ const Dashboard = props => {
                 </div>
                 <div className={'list-row'}>
                     <span className={"list-label"}>LINK</span>
-                    <span className={"list-contents"}> https://outtamusic.com/BronzeWombat </span>
-                    <Button className={"share-button"} variant={"contained"}>
-                        <span>Share Invite</span>
-                        <ShareIcon fontSize={"small"} />
-                    </Button>
+                    <span className={"list-contents"}> https://outtamusic.com/{groupState.name}</span>
                 </div>
                 <div className={'list-row'}>
-                    <span className={"list-label"}>PASSWORD</span>
-                    <span className={"list-contents"}> ********** </span>
-                    <Button>
+                    <span className={"list-label"}>PASSCODE</span>
+                    <span className={"list-contents"}> {passcodeStr} </span>
+                    <Button disabled={!groupState.iAmMember} onClick={() => setShowPassword(s => !s)}>
                         <VisibilityIcon />
                     </Button>
+
+                    {
+                       groupState.iAmMember ? (
+                           <Button className={"share-button"} variant={"contained"} onClick={shareInvite}>
+                               <span>Share Invite</span>
+                               <ShareIcon fontSize={"small"} />
+                           </Button>
+                       ) : (
+                           <Button disabled={!isAuthenticated} className={"share-button"} variant={"contained"} onClick={openJoinModal}>
+                               <span>Join</span>
+                               <ShareIcon fontSize={"small"} />
+                           </Button>
+
+                       )
+                    }
                 </div>
             </div>
 

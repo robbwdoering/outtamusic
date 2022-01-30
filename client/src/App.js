@@ -56,6 +56,7 @@ function App() {
         name: null
     });
     const [menuAnchor, setMenuAnchor] = useState(null);
+    const isAuthenticated = Boolean(authState.id);
 
     const spotify = useRef(new Spotify());
 
@@ -164,7 +165,7 @@ function App() {
      * Uses the spotify API to fetch the contents of this user's best of the year playlists.
      */
     const fetchUserPlaylists = () => {
-        if (!authState.id) {
+        if (!isAuthenticated) {
             console.error("Couldn't fetch playlists; not logged in.");
             return;
         }
@@ -207,27 +208,17 @@ function App() {
         }));
     };
 
+    const openCreateModal = (event) => {
+        setLayoutState(s => Object.assign({}, s, {
+            curModal: "create"
+        }));
+    };
+
     const openJoinModal = (event) => {
         setLayoutState(s => Object.assign({}, s, {
             curModal: "join"
         }));
     };
-
-    /**
-     * Send a request to the backend for a new group creation.
-     */
-    const createGroup = (event) => {
-        console.log("[createGroup]", authState);
-        query('/groups', 'POST')
-            .then(data => {
-                if (data.error) {
-                    console.error(data.error);
-                    return;
-                }
-
-                navigate('/'+data.name);
-            });
-    }
 
     /**
      * 
@@ -273,7 +264,7 @@ function App() {
     // -----------------
     // NESTED COMPONENTS
     // -----------------
-    const SpotifyAuthButton = props => authState.access_token ? (
+    const SpotifyAuthButton = props => isAuthenticated ? (
         <Button variant="contained">
             <span>{authState.name}</span>
             <AccountCircleIcon fontSize={"small"} />
@@ -291,7 +282,7 @@ function App() {
         
         // Get group data for authenticated users
         useEffect(async () => {
-           if (authState.access_token && authState.id && !existingGroups && !loading) {
+           if (isAuthenticated && authState.groups.length && !existingGroups && !loading) {
                setLoading(true);
                query('/groups/multi', 'POST', { groups: [...authState.groups] })
                    .then(data => {
@@ -323,7 +314,7 @@ function App() {
                     
                     <div className={"mode-choice-container"}>
                         <div>
-                            <IconButton size="large" variant="contained" className="create-mode-choice-button" onClick={createGroup}>
+                            <IconButton size="large" variant="contained" className="create-mode-choice-button" onClick={openCreateModal}>
                                 <EmojiPeopleIcon/>
                             </IconButton>
                             <span>Create</span>
@@ -401,6 +392,7 @@ function App() {
     };
 
     const AppModal = props => {
+        const { layoutState } = props;
         const [formState, setFormState] = useState({});
 
         const handleGroupNameChange = (event) => {
@@ -412,10 +404,40 @@ function App() {
          * Sends a request to the backend API to join the specified group.
          */
         const submitJoinForm = () => {
-            if (formState.groupName && formState.password) {
+            if (formState.groupName && formState.passcode) {
                 console.log("[submitJoinForm]", formState);
             }
+
+            closeModal();
         };
+
+        /**
+         * Sends a request to the backend API for a new group creation.
+         */
+        const submitCreateForm = (event) => {
+            console.log("submitCreateForm", formState.passcode);
+           query('/groups', 'POST', { passcode: formState.passcode })
+                .then(data => {
+                    if (data.error) {
+                        console.error(data.error);
+                        return;
+                    }
+
+                    navigate('/'+data.name);
+                });
+
+            closeModal();
+        }
+
+        useEffect(() => {
+            let newFormState = {};
+            const path = window.location.pathname.substring(1);
+            if (layoutState.curModal === "join" && path.length) {
+                newFormState.groupName = path;
+            }
+
+            setFormState(newFormState);
+        }, [layoutState.curModal]);
 
         return (
             <Modal
@@ -429,7 +451,7 @@ function App() {
                             <p>
                                 This website is a simple open source tool that builds and analyzes playlists
                                 based on the top songs of you and your friends over time. One person creates a group on the site, then anyone
-                                with the link and a password can join and add their songs to the playlists.
+                                with the link and a passcode can join and add their songs to the playlists.
                             </p>
 
                             <h2>Do you keep any of my info?</h2>
@@ -449,24 +471,48 @@ function App() {
                             <p>Lorem Ipsum</p>
                         </React.Fragment>
                     )}
+                    {layoutState.curModal === "create" && (
+                        <React.Fragment>
+                            <h3>Create a Group</h3>
+                            <div className={"form-container"}>
+                                <TextField
+                                    label={"Passcode"}
+                                    value={formState.passcode || ""}
+                                    name={"passcode"}
+                                    onChange={handleGroupNameChange}
+                                />
+                                <Button
+                                    disabled={!formState.passcode || formState.passcode.length === 0}
+                                    className={"join-form-submit"}
+                                    variant={"contained"}
+                                    onClick={submitCreateForm}
+                                >
+                                    Submit
+                                </Button>
+                            </div>
+                            <p>This passcode will be needed by anyone who wants to join the group.</p>
+                        </React.Fragment>
+                    )}
                     {layoutState.curModal === "join" && (
                         <React.Fragment>
                             <h3>Join a Group</h3>
-                            <TextField
-                                label={"Group Name"}
-                                value={formState.groupName || ""}
-                                name={"groupName"}
-                                onChange={handleGroupNameChange}
-                            />
-                            <TextField
-                                label={"Password"}
-                                value={formState.password || ""}
-                                name={"password"}
-                                onChange={handleGroupNameChange}
-                            />
-                            <Button className={"join-form-submit"} variant={"contained"} onClick={submitJoinForm}>
-                                Submit
-                            </Button>
+                            <div className={"form-container"}>
+                                <TextField
+                                    label={"Group Name"}
+                                    value={formState.groupName || ""}
+                                    name={"groupName"}
+                                    onChange={handleGroupNameChange}
+                                />
+                                <TextField
+                                    label={"Passcode"}
+                                    value={formState.passcode || ""}
+                                    name={"passcode"}
+                                    onChange={handleGroupNameChange}
+                                />
+                                <Button className={"join-form-submit"} variant={"contained"} onClick={submitJoinForm}>
+                                    Submit
+                                </Button>
+                            </div>
                         </React.Fragment>
                     )}
                 </Paper>
@@ -482,19 +528,27 @@ function App() {
     useEffect(finishAuthentication, [authState.access_token])
 
     const path = window.location.pathname;
+    console.log("[App]", authState.id);
 
     return (
         <div id="app-root" className="app-root">
             <Header />
             <div className={"app-body"}>
                 {layoutState.curPage === "index" && <Index />}
-                {layoutState.curPage === "dashboard" && <Dashboard query={query}/>}
+                {layoutState.curPage === "dashboard" && (
+                    <Dashboard
+                        userId={authState.id}
+                        isAuthenticated={isAuthenticated}
+                        query={query}
+                        openJoinModal={openJoinModal}
+                    />
+                )}
             </div>
             <div className={"app-footer"}>
                 This project is <a href={'https://github.com/robbwdoering/outtamusic'}>open source</a> and not affiliated with Spotify.
             </div>
 
-            <AppModal />
+            <AppModal layoutState={layoutState}/>
         </div>
     )
 }

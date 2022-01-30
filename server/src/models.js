@@ -14,6 +14,7 @@ const GroupSchema = new Schema({
     },
     members: [ String ],
     matchScore: Number,
+    passcode: Number,
     playlists: [
         {
             year: {type: Number, required: true},

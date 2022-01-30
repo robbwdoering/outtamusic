@@ -78,28 +78,58 @@ app.use(logRequest);
  * This is a public endpoint for some groups - no authentication required.
  */
 app.get("/groups/:groupName", async (req, res) => {
-    const { groupName } = req.query;
+    const { groupName } = req.params;
     console.log("GET /groups", groupName);
 
     const groupDoc = await GroupModel.findOne({ name: groupName });
-    if (groupDoc) {
-        return res.json(groupDoc);
-    } else {
+    if (!groupDoc) {
         return res.status(500).send({message: 'Internal Error'});
     }
+    let ret = {
+        name: groupDoc.name,
+        members: groupDoc.members.map(id => ({ id })),
+        matchScore: groupDoc.matchScore,
+        playlists: groupDoc.playlists.map(playlist => ({
+            year: playlist.year,
+            id: playlist.id
+        }))
+    }
+
+    // Add passcode if we're authenticated as part of this group
+    console.log("HEY", req.session.spotifyId, groupDoc.members)
+    if (req.session.spotifyId && groupDoc.members.includes(req.session.spotifyId)) {
+        ret.passcode = groupDoc.passcode;
+    }
+
+    console.log("get group", ret.members);
+
+    const userDocs = await UserModel.find({ id: groupDoc.members }).exec();
+    for (let i = 0; i < groupDoc.members.length; i++) {
+        const userId = groupDoc.members[i];
+        const userDoc = userDocs.find(doc => doc.id === userId);
+        ret.members[i].name = userDoc.name;
+        ret.members[i].img = userDoc.img;
+    }
+
+    return res.json(ret);
 });
 
 /**
  * Creates a new group.
  */
 app.post("/groups", sessionAuth, async (req, res) => {
-    console.log("POST /groups");
+    if (!req.body.passcode) {
+        return res.status(400).send({ message: "No passcode provided"});
+    }
+
+    console.log("POST /groups", req.body.passcode);
     const groupDoc = {
         name: null,
         members: [req.session.spotifyId],
         matchScore: 0,
         playlists: [],
-        analysis: []
+        analysis: [],
+        passcode: req.body.passcode
     };
 
     let slugIsUnique = false;
@@ -126,7 +156,11 @@ app.post("/groups", sessionAuth, async (req, res) => {
  * Modifies a group, such as by adding or deleting a member, or adding newly calculated data.
  */
 app.put("/groups/:groupName", sessionAuth, async (req, res) => {
-    console.log("PUT /groups");
+    const { groupName } = req.params;
+    const { analysis, songList } = req.body;
+    console.log("PUT /groups", groupName);
+
+    // Verify that the password is correct
 });
 
 /**
