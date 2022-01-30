@@ -16,9 +16,10 @@ import VisibilityIcon from "@mui/icons-material/Visibility";
 import KeyboardArrowUpIcon from "@mui/icons-material/KeyboardArrowUp";
 import KeyboardArrowDownIcon from "@mui/icons-material/KeyboardArrowDown";
 import React, {useState, useMemo, useEffect} from "react";
+import { performOnJoinAnalysis } from './analysis';
 
 const Dashboard = props => {
-    const { isAuthenticated, query, openJoinModal, userId } = props;
+    const { isAuthenticated, query, openJoinModal, userId, getSpotify } = props;
 
     // ----------
     // STATE INIT
@@ -28,6 +29,7 @@ const Dashboard = props => {
         members: [],
     });
     const [showPassword, setShowPassword] = useState(false);
+    const [songList, setSongList] = useState([]);
 
     // ----------------
     // MEMBER FUNCTIONS
@@ -63,6 +65,30 @@ const Dashboard = props => {
     }
 
     const shareInvite = () => {
+    }
+
+    const generatePasscodeStr = () => {
+        console.log("[generatePasscodeStr]", groupState.passcode, showPassword)
+        if (groupState.passcode && groupState.iAmMember) {
+            return showPassword ? groupState.passcode : Array((''+groupState.passcode).length+1).join('*')
+        }
+        return "*******";
+    }
+
+    const uploadData = async () => {
+        if (isAuthenticated && groupState.iAmMember) {
+            // Get the full lists of songs
+            const songLists = await query('/songs/'+groupState.name).then(data => {
+                if (data.error) {
+                    console.error(data.error);
+                    return {};
+                }
+                return data.songLists;
+            })
+
+            await performOnJoinAnalysis(getSpotify(), groupState, userId, songLists);
+        }
+
     }
 
     // -----------------
@@ -121,14 +147,6 @@ const Dashboard = props => {
         );
     }
 
-    const generatePasscodeStr = () => {
-        console.log("[generatePasscodeStr]", groupState.passcode, showPassword)
-        if (groupState.passcode && groupState.iAmMember) {
-            return showPassword ? groupState.passcode : Array((''+groupState.passcode).length+1).join('*')
-        }
-        return "*******";
-    }
-
     // ---------
     // LIFECYCLE
     // ---------
@@ -136,8 +154,8 @@ const Dashboard = props => {
     const passcodeStr = useMemo(generatePasscodeStr, [groupState.passcode, groupState.iAmMember, showPassword])
     
     useEffect(fetchGroupData, [groupState.name, userId]);
+    useEffect(uploadData, [isAuthenticated, groupState.iAmMember, groupState.name]);
 
-    console.log("[Dashboard] ", userId);
     return (
         <div className={"dashboard-container"}>
             <div className={'group-admin-container'}>

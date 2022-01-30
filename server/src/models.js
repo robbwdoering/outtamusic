@@ -5,7 +5,14 @@
  */
 
 const mongoose = require('mongoose');
+const { ObjectId } = require('mongodb');
 const Schema = mongoose.Schema;
+
+const ObjectSchema = new Schema({
+    data: Object
+});
+const ObjectModel = mongoose.model('Object', ObjectSchema);
+module.exports.ObjectModel = ObjectModel;
 
 const GroupSchema = new Schema({
     name: {
@@ -18,11 +25,13 @@ const GroupSchema = new Schema({
     playlists: [
         {
             year: {type: Number, required: true},
-            id: {type: String, required: true},
-            analysis: [String]
+            id: {type: String, required: true}
         }
     ],
-    analysis: [String]
+    songLists: ObjectId,
+    staticAnalysis: ObjectId,
+    dynamicAnalysis: ObjectId,
+    statAnalysis: ObjectId
 });
 const GroupModel = mongoose.model('Group', GroupSchema);
 module.exports.GroupModel = GroupModel;

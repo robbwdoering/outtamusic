@@ -18,7 +18,7 @@ const bodyParser = require('body-parser');
 const { totalUniqueSlugs, generateSlug } = require("random-word-slugs");
 
 const { validateEnv } = require('./utils');
-const { UserModel, GroupModel } = require('./models');
+const { UserModel, GroupModel, ObjectModel } = require('./models');
 const { EXPIRE_TIME, slugConfig } = require('./constants');
 
 require('dotenv').config();
@@ -96,12 +96,9 @@ app.get("/groups/:groupName", async (req, res) => {
     }
 
     // Add passcode if we're authenticated as part of this group
-    console.log("HEY", req.session.spotifyId, groupDoc.members)
     if (req.session.spotifyId && groupDoc.members.includes(req.session.spotifyId)) {
         ret.passcode = groupDoc.passcode;
     }
-
-    console.log("get group", ret.members);
 
     const userDocs = await UserModel.find({ id: groupDoc.members }).exec();
     for (let i = 0; i < groupDoc.members.length; i++) {
@@ -128,7 +125,6 @@ app.post("/groups", sessionAuth, async (req, res) => {
         members: [req.session.spotifyId],
         matchScore: 0,
         playlists: [],
-        analysis: [],
         passcode: req.body.passcode
     };
 
@@ -278,6 +274,21 @@ app.get("/users/me", async (req, res) => {
     }
 
     return res.status(401).send({ message: "Failed to authenticate."});
+});
+
+app.get('/songs/:groupName', async (req, res) => {
+    const { groupName } = req.params;
+    const groupDoc = await GroupModel.findOne({ name: groupName }).exec();
+    let ret = {};
+
+    if (groupDoc.songLists) {
+        const objDoc = await ObjectModel.findOne({ _id: groupDoc.songLists }).exec();
+        if (objDoc) {
+            ret = objDoc.data;
+        }
+    }
+
+    return res.json({ songLists: ret })
 });
 
 app.listen(process.env.PORT);

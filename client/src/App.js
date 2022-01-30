@@ -528,7 +528,6 @@ function App() {
     useEffect(finishAuthentication, [authState.access_token])
 
     const path = window.location.pathname;
-    console.log("[App]", authState.id);
 
     return (
         <div id="app-root" className="app-root">
@@ -541,6 +540,7 @@ function App() {
                         isAuthenticated={isAuthenticated}
                         query={query}
                         openJoinModal={openJoinModal}
+                        getSpotify={() => spotify.current}
                     />
                 )}
             </div>
