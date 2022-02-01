@@ -39,4 +39,72 @@ import '@testing-library/jest-dom';
  *              - Most popular album
  *              - number of songs shared with all other users
  *              -
+ * Analysis
+ *      key
+ *      major/minor
+ *      tempo
+ *      time_signature
+ *      loudness
+ *      specific sections??
+ *
+ * Features
+ *         Acousticness
+ *         Danceability
+ *         Energy
+ *         Instrumentalness
+*         Loudness
+*         Mode
+*         Speechiness
+*         Liveness
+ *         Tempo
+ *         Valence
+ *
+ * -1. 10x10 grid
+ *      - Controls appear below the grid, allowing user to change colors, much like a choropleth
+ *      - Songs w/ genre
+ *      - Live songs
+ *      - Instrumental songs
+ *      - Key, Mode
+ *
+ * 0. Genre wordcloud?
+ *
+ * 1. Static Feature Analysis
+ *      1.1 Valence vs. Tempo
+ *      1.2 Danceability vs. Energy
+ *      1.3 Instrumentality vs. Acousticness
+ *      1.4 ANY (????)
+ *
+ * 2. Dynamic Feature Analysis
+ *      2.1 Cultural Graph (feature info)
+ *      2.2 Physical Graph (analysis info) (REACH?)
+ *
+ * 3. Trend Analysis
+ *      3.1 How many hits for the most popular [track, album, artist]
+ *      3.2 # Instrumentals
+ *      3.3 # Live Recordings
+ *      3.4 % Major
+ *      3.5 Stacked area chart of % Key
+ *      3.6 Avg. Popularity over time
+ *      3.7 Least popular track each year
+ *      3.8 Decade popularity over time
+ *      3.9
+ *      DET
+ *          - Show both individuals and aggregate on each chart, allowing users to hide any lines they want
+ *          - For non-line charts (such as stacked area charts), just show aggregate
+ *
+ * 4. Stats Analysis
+ *      4.0 Straight values: most features, a few analysis points?
+ *      4.1 Song length? (/an)
+ *      4.2 Most explicit (/track)
+ *      4.3 Popularity (/track)
+ *      4.4 Average Artist Number per track (/track)
+ *      4.5 # Live Recordings (/feature)
+ *      DET
+ *          - Show separate tables (cards?) for each year, then one for "Total"
+ *          - Show a four-pointed star for each?
+ *          - Just show a bar graph for each stat, where X is user?
+ *
+ * 5. Geographical Analysis (REACH)
+ *      5.1 Artists from each country
+ *      5.2 Un-available markets
  */

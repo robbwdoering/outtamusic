@@ -17,6 +17,7 @@ import KeyboardArrowUpIcon from "@mui/icons-material/KeyboardArrowUp";
 import KeyboardArrowDownIcon from "@mui/icons-material/KeyboardArrowDown";
 import React, {useState, useMemo, useEffect} from "react";
 import { performOnJoinAnalysis } from './analysis';
+// import { ClusterViz } from './ClusterViz';
 
 const Dashboard = props => {
     const { isAuthenticated, query, openJoinModal, userId, getSpotify } = props;
@@ -29,6 +30,7 @@ const Dashboard = props => {
         members: [],
     });
     const [showPassword, setShowPassword] = useState(false);
+    const [isLoading, setIsLoading] = useState(false);
     const [songList, setSongList] = useState([]);
 
     // ----------------
@@ -68,7 +70,6 @@ const Dashboard = props => {
     }
 
     const generatePasscodeStr = () => {
-        console.log("[generatePasscodeStr]", groupState.passcode, showPassword)
         if (groupState.passcode && groupState.iAmMember) {
             return showPassword ? groupState.passcode : Array((''+groupState.passcode).length+1).join('*')
         }
@@ -76,7 +77,8 @@ const Dashboard = props => {
     }
 
     const uploadData = async () => {
-        if (isAuthenticated && groupState.iAmMember) {
+        if (isAuthenticated && groupState.iAmMember && !isLoading) {
+            setIsLoading(true);
             // Get the full lists of songs
             const songLists = await query('/songs/'+groupState.name).then(data => {
                 if (data.error) {
@@ -86,9 +88,13 @@ const Dashboard = props => {
                 return data.songLists;
             })
 
-            await performOnJoinAnalysis(getSpotify(), groupState, userId, songLists);
-        }
+            const analysisObj = await performOnJoinAnalysis(getSpotify(), groupState, userId, songLists);
+            if (analysisObj) {
+                // Send the data block over to the server for saving
+            }
 
+            setIsLoading(false);
+        }
     }
 
     // -----------------
@@ -129,14 +135,6 @@ const Dashboard = props => {
             </React.Fragment>
         )
     };
-    
-    const ClusterViz = props => {
-        return (
-            <div>
-               ClusterViz 
-            </div>
-        );
-    }
 
     const TrendViz = props => {
         return (
@@ -192,7 +190,7 @@ const Dashboard = props => {
             </div>
 
             <h3>1. Clusters</h3>
-            <ClusterViz />
+            {/*<ClusterViz />*/}
             
             <h3>2. Trends</h3>
             {trends && trends.map(trend => (

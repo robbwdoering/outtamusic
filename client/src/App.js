@@ -1,6 +1,8 @@
 import './App.css';
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import {
+    Card,
+    CardActions,
     IconButton,
     Button,
     Menu,
@@ -17,7 +19,6 @@ import CheckIcon from '@mui/icons-material/Check';
 import AccountCircleIcon from '@mui/icons-material/AccountCircle';
 import EmojiPeopleIcon from '@mui/icons-material/EmojiPeople';
 import GroupIcon from '@mui/icons-material/Group';
-import * as d3 from 'd3';
 import Spotify from 'spotify-web-api-js';
 
 import Dashboard from './Dashboard';
@@ -258,7 +259,22 @@ function App() {
                 return response.json();
             })
             .catch(err => ({ error: err }));
-    }
+    };
+
+    /**
+     *
+     * Open the page for a specific group.
+     * @param event
+     */
+    const navToGroup = (event) => {
+        const groupName = event.target.name;
+        console.log('[navToGroup]', groupName);
+        if (!groupName) {
+            return;
+        }
+
+        navigate('/'+groupName);
+    };
 
 
     // -----------------
@@ -300,8 +316,8 @@ function App() {
             return (
                 <div className={"noauth-index-container"}>
                     <h3 id={'first'}>feeling outta music?</h3>
-                    <h3 id={'second'}>tired of Spotify's guesses?</h3>
-                    <h3 id={'third'}>do your friends listen to good music?</h3>
+                    <h3 id={'second'}>used Spotify for a few years?</h3>
+                    <h3 id={'third'}>your friends listen to good music?</h3>
                     <SpotifyAuthButton/>
                     <a className={"button-caption"} onClick={openExplainModal}>WHY?</a>
                 </div>
@@ -331,26 +347,23 @@ function App() {
                             <h3>Existing Groups</h3>
                             <div className={"existing-groups-container"}>
                                 {existingGroups.map(group => (
-                                    <Paper className={"group-card-container"}>
+                                    <Card className={"group-card"} name={group.name}>
                                         <div className={'list-row'}>
                                             <span className={"list-label"}>NAME</span>
                                             <span>{group.name}</span>
                                         </div>
                                         <div className={'list-row'}>
-                                            <span className={"list-label"}>MEMBERS</span>
+                                            <span className={"list-label"}>MEMBERS ({group.members.length})</span>
                                             <span>
                                                 {group.members.reduce((acc, member, i) => (
                                                     acc + (i ? ', ' : '') + member.name
                                                 ), '')}
                                             </span>
                                         </div>
-                                        <div className={'list-row'}>
-                                            <span className={"list-label"}>MATCH SCORE</span>
-                                            <span>
-                                                {group.matchScore}
-                                            </span>
-                                        </div>
-                                    </Paper>
+                                        <CardActions>
+                                            <Button name={group.name} onClick={navToGroup}>OPEN</Button>
+                                        </CardActions>
+                                    </Card>
                                 ))}
                             </div>
                         </React.Fragment>

@@ -133,7 +133,6 @@
 }
 
 .dashboard-container {
-
     max-width: 100%;
     margin: 0 20px;
 }
@@ -194,10 +193,20 @@ div.list-row span.list-label {
     display: flex;
 }
 
-.auth-index-container .existing-groups-container .group-card-container {
+.auth-index-container .existing-groups-container .group-card {
     padding: 10px;
 }
 
-.auth-index-container .existing-groups-container .group-card-container .list-row {
+.auth-index-container .existing-groups-container .group-card .list-row {
     margin: 5px 0;
+}
+
+.existing-groups-container .group-card .MuiCardActions-root {
+    display: flex;
+    justify-content: end;
+    padding: 0;
+}
+
+.existing-groups-container .group-card .MuiCardActions-root button.MuiButton-root {
+
 }
