@@ -18,8 +18,8 @@ const bodyParser = require('body-parser');
 const { totalUniqueSlugs, generateSlug } = require("random-word-slugs");
 
 const { validateEnv } = require('./utils');
-const { UserModel, GroupModel, ObjectModel } = require('./models');
-const { EXPIRE_TIME, slugConfig } = require('./constants');
+const { UserModel, GroupModel, RecordModel } = require('./models');
+const { EXPIRE_TIME, slugConfig, defaultRecord } = require('./constants');
 
 require('dotenv').config();
 
@@ -276,19 +276,29 @@ app.get("/users/me", async (req, res) => {
     return res.status(401).send({ message: "Failed to authenticate."});
 });
 
-app.get('/songs/:groupName', async (req, res) => {
+app.get('/groups/:groupName/record', async (req, res) => {
     const { groupName } = req.params;
     const groupDoc = await GroupModel.findOne({ name: groupName }).exec();
+    if (!groupDoc) {
+        return res.status(500).send({message: 'Invalid group name.'});
+    }
     let ret = {};
 
-    if (groupDoc.songLists) {
-        const objDoc = await ObjectModel.findOne({ _id: groupDoc.songLists }).exec();
-        if (objDoc) {
-            ret = objDoc.data;
-        }
+    let recordDoc;
+    if (groupDoc.record) {
+        recordDoc = await RecordModel.findOne({ _id: groupDoc.record }).exec();
+    } else {
+        recordDoc = await RecordModel.create(defaultRecord);
+        groupDoc.record = recordDoc._id;
+        await groupDoc.save();
     }
 
-    return res.json({ songLists: ret })
+    if (recordDoc) {
+        delete recordDoc._id;
+        return res.json({ record: recordDoc })
+    }
+
+    return res.status(500).send({message: 'Internal server error.'});
 });
 
 app.listen(process.env.PORT);

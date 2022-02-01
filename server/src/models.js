@@ -8,6 +8,25 @@ const mongoose = require('mongoose');
 const { ObjectId } = require('mongodb');
 const Schema = mongoose.Schema;
 
+const RecordSchema = new Schema({
+    tracks: {
+        ids: [String],
+        features: [[Number]]
+    },
+    artists: {
+        ids:  [String],
+        features: [[Number]]
+    },
+    albums: {
+        ids: [String],
+        features: [[Number]]
+    },
+    playlists: Object, // Don't want to use dynamic keys
+    genres: [String]
+});
+const RecordModel = mongoose.model('Record', RecordSchema);
+module.exports.RecordModel = RecordModel;
+
 const ObjectSchema = new Schema({
     data: Object
 });
@@ -28,7 +47,7 @@ const GroupSchema = new Schema({
             id: {type: String, required: true}
         }
     ],
-    songLists: ObjectId,
+    record: ObjectId,
     staticAnalysis: ObjectId,
     dynamicAnalysis: ObjectId,
     statAnalysis: ObjectId

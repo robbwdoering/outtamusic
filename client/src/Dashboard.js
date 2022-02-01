@@ -80,15 +80,15 @@ const Dashboard = props => {
         if (isAuthenticated && groupState.iAmMember && !isLoading) {
             setIsLoading(true);
             // Get the full lists of songs
-            const songLists = await query('/songs/'+groupState.name).then(data => {
+            const records = await query('/groups/'+groupState.name+'/record', 'GET').then(data => {
                 if (data.error) {
                     console.error(data.error);
                     return {};
                 }
-                return data.songLists;
+                return data.records;
             })
 
-            const analysisObj = await performOnJoinAnalysis(getSpotify(), groupState, userId, songLists);
+            const analysisObj = await performOnJoinAnalysis(getSpotify(), groupState, userId, records);
             if (analysisObj) {
                 // Send the data block over to the server for saving
             }

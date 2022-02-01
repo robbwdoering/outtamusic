@@ -16,3 +16,20 @@ module.exports.slugConfig = {
         noun: ['place', 'thing', 'time', 'animals']
     }
 };
+
+module.exports.defaultRecord = {
+    tracks: {
+        ids: [],
+        features: []
+    },
+    artists: {
+        ids: [],
+        features: []
+    },
+    albums: {
+        ids: [],
+        features: []
+    },
+    playlists: {},
+    genres: []
+}

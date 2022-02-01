@@ -12,21 +12,12 @@ export const Pages = [
 export const TrackFeatures = {
     track: [
         {
-            key: 'id',
-        },
-        {
             key: 'popularity',
-        },
-        {
-            key: 'artist',
-        },
-        {
-            key: 'album',
-        },
+        }
     ],
     feature: [
         {
-            key: 'duration',
+            key: 'duration_ms',
         },
         {
             key: 'acousticness',
@@ -68,10 +59,11 @@ export const TrackFeatures = {
 export const AlbumFeatures = {
     album: [
         {
-            key: 'id',
+            key: 'release_date',
         },
         {
-            key: 'release_date',
+            key: 'album_type',
+            customFunc: val => val === "album" ? 1 : 0
         }
     ]
 };
@@ -79,12 +71,6 @@ export const AlbumFeatures = {
 // A list of data kept/analyzed for every artist
 export const ArtistFeatures = {
     artist: [
-        {
-            key: 'id',
-        },
-        {
-            key: 'genres',
-        }
     ]
 };
 
