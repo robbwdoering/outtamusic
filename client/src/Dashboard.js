@@ -15,8 +15,8 @@ import ShareIcon from "@mui/icons-material/Share";
 import VisibilityIcon from "@mui/icons-material/Visibility";
 import KeyboardArrowUpIcon from "@mui/icons-material/KeyboardArrowUp";
 import KeyboardArrowDownIcon from "@mui/icons-material/KeyboardArrowDown";
-import React, {useState, useMemo, useEffect} from "react";
-import { performOnJoinAnalysis } from './analysis';
+import React, {useState, useMemo, useEffect, useRef} from "react";
+import { ingestIntoRecords, analyzeNewUserRecords } from './analysis';
 // import { ClusterViz } from './ClusterViz';
 
 const Dashboard = props => {
@@ -30,9 +30,9 @@ const Dashboard = props => {
         members: [],
     });
     const [showPassword, setShowPassword] = useState(false);
-    const [isLoading, setIsLoading] = useState(false);
     const [songList, setSongList] = useState([]);
 
+    const isLoading= useRef(false);
     // ----------------
     // MEMBER FUNCTIONS
     // ----------------
@@ -59,8 +59,6 @@ const Dashboard = props => {
             return;
         }
 
-        console.log(data.members);
-        console.log('[fetchGroupData]', data, userId, isAuthenticated, data.members.find(member => member.id === userId))
         setGroupState(s => Object.assign({}, s, data, {
             iAmMember: isAuthenticated && data.members.find(member => member.id === userId)
         }));
@@ -76,24 +74,47 @@ const Dashboard = props => {
         return "*******";
     }
 
-    const uploadData = async () => {
-        if (isAuthenticated && groupState.iAmMember && !isLoading) {
-            setIsLoading(true);
+    /**
+     * Contacts the server if necessary for new records describing this group.
+     * Also, responsible for uploading records if it's found that the current user
+     * doesn't have any records uploaded.
+     */
+    const fetchRecordsAndAnalysis = async () => {
+        if (!isLoading.current) {
+            isLoading.current = true;
+
             // Get the full lists of songs
-            const records = await query('/groups/'+groupState.name+'/record', 'GET').then(data => {
+            const { record, analysis } = await query('/groups/'+groupState.name+'/record', 'GET').then(data => {
                 if (data.error) {
                     console.error(data.error);
                     return {};
                 }
-                return data.records;
+                return data.record;
             })
-
-            const analysisObj = await performOnJoinAnalysis(getSpotify(), groupState, userId, records);
-            if (analysisObj) {
-                // Send the data block over to the server for saving
+            if (!record) {
+                console.error("Invalid /groups/record response", record);
+                return;
+            } else if (!record.playlists) {
+                record.playlists = [];
             }
 
-            setIsLoading(false);
+            // If this user is not yet reflected in the records
+            if (groupState.members.length > record.playlists.length && !record.playlists.some(playlist => playlist.userId === groupState.name)) {
+                const newRecords = await ingestIntoRecords(getSpotify(), groupState, userId, record);
+                if (!newRecords) {
+                    console.error("Failed to ingest into records");
+                    return;
+                }
+
+                // Analyze
+                const newAnalysis = await analyzeNewUserRecords(newRecords, analysis, userId, groupState);
+                console.log("analysis", newAnalysis)
+
+                // Save to server
+            }
+
+
+            isLoading.current = false;
         }
     }
 
@@ -152,7 +173,7 @@ const Dashboard = props => {
     const passcodeStr = useMemo(generatePasscodeStr, [groupState.passcode, groupState.iAmMember, showPassword])
     
     useEffect(fetchGroupData, [groupState.name, userId]);
-    useEffect(uploadData, [isAuthenticated, groupState.iAmMember, groupState.name]);
+    useEffect(() => { fetchRecordsAndAnalysis() }, [isAuthenticated, groupState.iAmMember, groupState.name]);
 
     return (
         <div className={"dashboard-container"}>

@@ -8,6 +8,48 @@ const mongoose = require('mongoose');
 const { ObjectId } = require('mongodb');
 const Schema = mongoose.Schema;
 
+const AnalysisSchema = new Schema({
+    // Rows are years, columns are users, values are analysis objects
+    data: [
+        [
+            {
+                relations: [Number],
+
+                // cluster vars are assignments, where idx is
+                staticClusters: {
+                    valence_tempo: [Number],
+                    danceability_energy: [Number],
+                    instrumentality_acousticness: [Number]
+                },
+                dynamicClusters: {
+                    feature: {
+                        PCA: Schema.Types.Mixed,
+                        assignments: [Number]
+                    }
+                },
+
+                stats: {
+                    instrumentalCount: Number,
+                    liveCount: Number,
+                    majorCount: Number,
+                    // variable keys
+                    trackCounts: Schema.Types.Mixed,
+                    albumCounts: Schema.Types.Mixed,
+                    artistCounts: Schema.Types.Mixed,
+                    decadeCounts: Schema.Types.Mixed,
+                    // array index is tied to key
+                    keyCounts: [ Number ],
+                    // years x 5 (tracks) x 2 ([trackIdx, floatIdx]
+                    leastPopular: [ [ [Number, Number] ] ],
+                    mostPopular: [ [ [Number, Number] ] ]
+                },
+            }
+        ]
+    ]
+});
+const AnalysisModel = mongoose.model('Analysis', AnalysisSchema);
+module.exports.AnalysisModel = AnalysisModel;
+
 const RecordSchema = new Schema({
     tracks: {
         ids: [String],
@@ -21,7 +63,7 @@ const RecordSchema = new Schema({
         ids: [String],
         features: [[Number]]
     },
-    playlists: Object, // Don't want to use dynamic keys
+    playlists: [Schema.Types.Mixed], // Don't want to use dynamic keys
     genres: [String]
 });
 const RecordModel = mongoose.model('Record', RecordSchema);

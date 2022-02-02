@@ -6,17 +6,13 @@
  * of the results of this analysis. Since users can only join groups with their friends, this is fine.
  */
 import { Matrix } from 'ml-matrix';
+import WCluster from 'w-cluster'
+
 import { TrackFeatures, AlbumFeatures, ArtistFeatures, NumFeatures } from './constants';
 
 export const handleError = (err) => {
     console.error(err);
     return null;
-}
-
-const combineRecords = (lhs, rhs) => {
-    const ret = {
-    }
-    return ret;
 }
 
 /**
@@ -27,7 +23,7 @@ const combineRecords = (lhs, rhs) => {
  * @param records the existing data structure for this group
  * @returns {Promise<{albums: {features: null, ids: *[]}, artists: {features: null, ids: *[]}, genres: *[], playlists: {}, tracks: {features: null, ids: *[]}}>}
  */
-export const performOnJoinAnalysis = async (spotify, group, userId, records) => {
+export const ingestIntoRecords = async (spotify, group, userId, records) => {
     console.log("[performOnJoinAnalysis] ENTER", group)
     if (!records) {
         records = { tracks: {}, artists: {}, albums: {} }
@@ -46,7 +42,7 @@ export const performOnJoinAnalysis = async (spotify, group, userId, records) => 
             ids: records.albums.ids || [],
             features: null
         },
-        playlists: {},
+        playlists: [...records.playlists, { userId }],
         genres: []
     };
 
@@ -55,6 +51,7 @@ export const performOnJoinAnalysis = async (spotify, group, userId, records) => 
     if (!playlists) {
         return null;
     }
+    const userIdx = ret.playlists.length - 1;
     const years = Object.keys(playlists);
     years.sort();
     console.log("Calculating results for years:", years);
@@ -105,7 +102,7 @@ export const performOnJoinAnalysis = async (spotify, group, userId, records) => 
     // Get features for every track, and ingest it all into a set of numeric arrays
     for (let i=0; i < years.length; i++) {
         const year = years[i];
-        ret.playlists[year] = [];
+        ret.playlists[userIdx][year] = [];
 
         await spotify.getAudioFeaturesForTracks(trackLists[year].map(track => track.id))
             .then(data => {
@@ -134,7 +131,7 @@ export const performOnJoinAnalysis = async (spotify, group, userId, records) => 
                     ingestArtists(ret, track.artists);
 
                     // Record this song's presence, and tie it an album and set of artists
-                    ret.playlists[year].push([
+                    ret.playlists[userIdx][year].push([
                         ret.tracks.ids.indexOf(track.id), // track record IDX
                         ret.albums.ids.indexOf(track.album.id), // album IDX
                         track.artists.map(artist => ret.artists.ids.indexOf(artist.id)) // artist IDXs
@@ -146,6 +143,178 @@ export const performOnJoinAnalysis = async (spotify, group, userId, records) => 
     console.log("[performOnJoinAnalysis] EXIT", ret);
     return ret;
 };
+
+/**
+ *
+ * @param records
+ * @param analysis
+ * @param userId
+ * @param group
+ * @returns
+ */
+export const analyzeNewUserRecords = async (records, analysis, userId, group) => {
+    // Count years and built initial analysis object
+    const userIdx = records.playlists.indexOf(playlist => playlist.userId === userId);
+    let years = records.playlists.reduce((acc, userObj) => {
+        Object.keys(userObj).forEach(year => {
+            acc.add(year);
+        })
+        return acc;
+    }, new Set());
+    years = [...years];
+    years.sort();
+    console.log(`This group is now using ${years.length} years, ${years[0]}-${years[years.length - 1]}`)
+
+    // Calculate one object per year for this user
+    const ret = years.map(year => ({
+        year,
+        users: records.playlists.map((userObj, userIdx) => ({
+            userId: userObj.userId,
+            relations: [],
+            staticClusters: {
+                valence_tempo: [],
+                danceability_energy: [],
+                instrumentality_acousticness: []
+            },
+            dynamicClusters: {
+                feature: {
+                    PCA: {},
+                    assignments: [],
+                    relations: []
+                }
+            },
+            stats: {
+                instrumentalCount: 0, // [ int ]
+                liveCount: 0, // [ int ]
+                majorCount: 0, // [  int ]
+                trackCounts: {}, // [ { trackIdx: int } ]
+                albumCounts: {}, // [ { albumIdx: int } ]
+                artistCounts: {}, // [ { artistIdx: int } ]
+                decadeCounts: {}, // [ { decadeName: int } ]
+                keyCounts: [0,0,0,0,0,0,0,0,0,0,0,0]
+                leastPopular: [], // [ [ [trackIdx, float], ...] ] (yearsx5x2)
+                mostPopular: [], // [ [ [trackIdx, float], ...] ] (yearsx5x2)
+            },
+        }))
+    }));
+
+    // 2. Static Feature Analysis (K-MEANS)
+    const staticVars = Object.keys(ret[0].staticClusters).map((key) => {
+        return key.split('_');
+    })
+    // Set up data array for each static graph
+    const data = years.reduce((acc, year) => {
+        acc[year] = {}
+        Object.keys(ret[0].staticClusters).forEach((key) => {
+            acc[year][key] = [];
+        });
+        return acc;
+    }, {});
+
+    // Fill each array for every track. Expensive but :shrugs: it's a one time operation
+    let xVal, yVal;
+    years.forEach(year => {
+        records.playlists.forEach((acc, userObj, userIdx) => {
+            if (Object.keys(userObj).includes(year)) {
+                userObj[year].forEach(track => {
+                    Object.keys(data[year]).forEach((key, keyIdx) => {
+                        xVal = track[staticVars[keyIdx][0]]
+                        yVal = track[staticVars[keyIdx][1]]
+                        if (xVal !== undefined && yVal !== undefined) {
+                            data[year][key].push([xVal, yVal])
+                        } else {
+                            // We can't skip pushing ANY values, since that would change the length
+                            // of the array. So go with 0s. TODO rework
+                            data[year][key].push([0, 0])
+                        }
+                    });
+                });
+            }
+            return acc;
+        }, []);
+    });
+
+    // Run clustering for every year
+    for (const yearIdx in years) {
+        const year = years[yearIdx];
+        for (const key in data[year]) {
+            // Initialize array
+            ret[yearIdx].staticClusters[key] = new Array(data[yearIdx][key].length)
+
+            // Perform clustering
+            const clusterObj = await WCluster.cluster(data[key], {
+                mode: 'k-medoids',
+                kNumber: group.members.length,
+                nCompNIPALS: 2
+            });
+
+            // Update return object with resulting cluster assignments
+            console.log(key, year, "clustering done", clusterObj);
+            clusterObj.ginds.forEach((clusterGinds, k) => {
+                for (let clusterIndices of clusterGinds) {
+                    clusterIndices.forEach(trackIdx => {
+                        ret[yearIdx].staticClusters[key][trackIdx] = k;
+                    });
+                }
+            });
+        }
+    }
+
+
+
+
+    // 3. Dynamic Feature Analysis
+    // 3.1 Cultural Graph (feature info)
+    // 3.2 Physical Graph (analysis info) (REACH)
+
+    // 4. Stat analysis
+    // Determine stats by going track-by-track for every year/user
+    for (const yearIdx in years) {
+        const year = years[yearIdx];
+        for (const userIdx in records.playlists) {
+            // 4.1 How many hits for the most popular [track, album, artist]
+            // 4.2 # Instrumentals
+            // 4.3 # Live Recordings
+            // 4.4 % Major
+            // 4.5 Stacked area chart of % Key
+            // 4.6 Avg. Popularity over time
+            // 4.7 Least popular track each year
+            // 4.8 Decade popularity over time
+            const indices = ['instrumentalness', 'liveness', 'major', 'key'].reduce((acc, key) => {
+               acc[key] = TrackFeatures.feature.findIndex(e => e.key === key);
+               return acc;
+            }, {});
+            indices.popularity = 0;
+
+            let retObj = ret[yearIdx][userIdx].stats;
+            records.playlists[userIdx][year].forEach((track, trackIdx) => {
+                // const weight = (100 - trackIdx) / 100; // (REACH)
+                if (track[indices.instrumentalness] > 0.5) {
+                    retObj.instrumentalCount += 1;
+                }
+                if (track[indices.liveness] > 0.8) {
+                    retObj.liveCount++;
+                }
+                if (track[indices.major] > 0.999999) {
+                    retObj.majorCount++;
+                }
+
+                if (track[indices.key] >= 0) {
+                    retObj.keyCounts[track[indices.key]]++;
+                }
+
+                const decade = track; // TODO
+            });
+        }
+    }
+    // Popularity scores for songs
+
+    console.log("RET", ret);
+    return ret;
+};
+
+const analyzeYearForUser = (records, analysis, userId, group, year) => {
+}
 
 
 // HELPER FUNCTIONS
@@ -198,7 +367,7 @@ const ingestArtists = (ret, artists) => {
         ret.artists.features[idx] = ArtistFeatures.artist.map(feature => {
             const val = artist[feature.key];
             return feature.customFunc ? feature.customFunc(val) : val;
-        };
+        });
     });
 };
 

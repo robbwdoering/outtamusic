@@ -293,12 +293,18 @@ app.get('/groups/:groupName/record', async (req, res) => {
         await groupDoc.save();
     }
 
-    if (recordDoc) {
-        delete recordDoc._id;
-        return res.json({ record: recordDoc })
+    let analysisDoc;
+    if (groupDoc.analysis) {
+        recordDoc = await AnalysisModel.findOne({ _id: groupDoc.analysis }).exec();
+    } else {
+        recordDoc = await AnalysisModel.create(defaultRecord);
+        groupDoc.analysis = recordDoc._id;
+        await groupDoc.save();
     }
 
-    return res.status(500).send({message: 'Internal server error.'});
+    ret.record = recordDoc || null;
+    ret.analysis = analysisDoc || null;
+    return res.json(ret)
 });
 
 app.listen(process.env.PORT);

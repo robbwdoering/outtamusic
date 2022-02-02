@@ -80,3 +80,7 @@ export const NumFeatures = {
     albums: Object.keys(AlbumFeatures).reduce((acc, key) => acc + AlbumFeatures[key].length, 0),
     artists: Object.keys(ArtistFeatures).reduce((acc, key) => acc + ArtistFeatures[key].length, 0),
 };
+
+// export const defaultAnalysis = {
+//     []
+// }
