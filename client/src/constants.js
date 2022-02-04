@@ -1,3 +1,5 @@
+import { findFeatureIdx } from './utils';
+
 export const spotifyAuthInfo = {
     client_id: process.env.REACT_APP_SPOTIFY_CLIENT_ID,
     redirect_uri: process.env.REACT_APP_CLIENT_URL + '/callback',
@@ -84,3 +86,5 @@ export const NumFeatures = {
 // export const defaultAnalysis = {
 //     []
 // }
+
+export const dynamicKeyIdxs = ['duration_ms', 'energy', 'acousticness', 'danceability', 'popularity', 'instrumentalness', 'loudness', 'speechiness', 'tempo', 'valence'].map(key => findFeatureIdx(key, TrackFeatures));

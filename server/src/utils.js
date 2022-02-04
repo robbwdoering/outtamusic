@@ -24,7 +24,19 @@ module.exports.validateEnv = () => {
     keys.includes('NODE_ENV') &&
     keys.includes('PORT')
   );
-}
+};
+
+/**
+ * Clean an object representing a mongodb document, removing fields that the client
+ * doesn't need to see.
+ * @param doc the document in question
+ */
+module.exports.cleanMongoDoc = doc => {
+    if (doc) {
+        delete doc['_id'];
+        delete doc['__v'];
+    }
+};
 
 // ----------------
 // HELPER FUNCTIONS

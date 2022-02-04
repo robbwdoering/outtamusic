@@ -8,7 +8,8 @@
 import { Matrix } from 'ml-matrix';
 import WCluster from 'w-cluster'
 
-import { TrackFeatures, AlbumFeatures, ArtistFeatures, NumFeatures } from './constants';
+import { findFeatureIdx, getUserIdx } from './utils';
+import { TrackFeatures, AlbumFeatures, ArtistFeatures, NumFeatures, dynamicKeyIdxs } from './constants';
 
 export const handleError = (err) => {
     console.error(err);
@@ -17,14 +18,14 @@ export const handleError = (err) => {
 
 /**
  * Analyze the event of this user joining this group.
+ * @param records the existing data structure for this group
  * @param spotify api obj
  * @param group object describing the current group
  * @param userId current user's ID
- * @param records the existing data structure for this group
  * @returns {Promise<{albums: {features: null, ids: *[]}, artists: {features: null, ids: *[]}, genres: *[], playlists: {}, tracks: {features: null, ids: *[]}}>}
  */
-export const ingestIntoRecords = async (spotify, group, userId, records) => {
-    console.log("[performOnJoinAnalysis] ENTER", group)
+export const ingestIntoRecords = async (records, spotify, group, userId) => {
+    console.log("[performOnJoinAnalysis] ENTER", group, records)
     if (!records) {
         records = { tracks: {}, artists: {}, albums: {} }
     }
@@ -140,12 +141,13 @@ export const ingestIntoRecords = async (spotify, group, userId, records) => {
             }, handleError);
     }
 
-    console.log("[performOnJoinAnalysis] EXIT", ret);
+    console.log("[ingestIntoRecords] EXIT", ret);
     return ret;
 };
 
 /**
- *
+ * After the "records" have been determined for a new user, this function will analyze all available
+ * data and create an updated "analysis" object that is used as input for final visualizations.
  * @param records
  * @param analysis
  * @param userId
@@ -154,9 +156,9 @@ export const ingestIntoRecords = async (spotify, group, userId, records) => {
  */
 export const analyzeNewUserRecords = async (records, analysis, userId, group) => {
     // Count years and built initial analysis object
-    const userIdx = records.playlists.indexOf(playlist => playlist.userId === userId);
+    const myUserIdx = records.playlists.indexOf(playlist => playlist.userId === userId);
     let years = records.playlists.reduce((acc, userObj) => {
-        Object.keys(userObj).forEach(year => {
+        Object.keys(userObj).filter(e => e !== "userId").forEach(year => {
             acc.add(year);
         })
         return acc;
@@ -166,15 +168,14 @@ export const analyzeNewUserRecords = async (records, analysis, userId, group) =>
     console.log(`This group is now using ${years.length} years, ${years[0]}-${years[years.length - 1]}`)
 
     // Calculate one object per year for this user
-    const ret = years.map(year => ({
-        year,
-        users: records.playlists.map((userObj, userIdx) => ({
-            userId: userObj.userId,
+    const ret = records.playlists.map((userObj) => (
+        years.map((year) => ({
+            year,
             relations: [],
             staticClusters: {
-                valence_tempo: [],
-                danceability_energy: [],
-                instrumentality_acousticness: []
+                valence_tempo: new Array(userObj[year].length),
+                danceability_energy: new Array(userObj[year].length),
+                instrumentality_acousticness: new Array(userObj[year].length)
             },
             dynamicClusters: {
                 feature: {
@@ -191,58 +192,101 @@ export const analyzeNewUserRecords = async (records, analysis, userId, group) =>
                 albumCounts: {}, // [ { albumIdx: int } ]
                 artistCounts: {}, // [ { artistIdx: int } ]
                 decadeCounts: {}, // [ { decadeName: int } ]
-                keyCounts: [0,0,0,0,0,0,0,0,0,0,0,0]
+                keyCounts: [0,0,0,0,0,0,0,0,0,0,0,0],
                 leastPopular: [], // [ [ [trackIdx, float], ...] ] (yearsx5x2)
                 mostPopular: [], // [ [ [trackIdx, float], ...] ] (yearsx5x2)
             },
         }))
-    }));
+    ));
 
-    // 2. Static Feature Analysis (K-MEANS)
-    const staticVars = Object.keys(ret[0].staticClusters).map((key) => {
-        return key.split('_');
+    console.log("[analysis] setup complete", ret);
+
+    // 2. Static Feature Analysis
+    const staticFeatureIndices = Object.keys(ret[0][0].staticClusters).map((key) => {
+        return key.split('_').map(str => findFeatureIdx(str, TrackFeatures));
     })
-    // Set up data array for each static graph
-    const data = years.reduce((acc, year) => {
-        acc[year] = {}
-        Object.keys(ret[0].staticClusters).forEach((key) => {
-            acc[year][key] = [];
-        });
-        return acc;
-    }, {});
 
-    // Fill each array for every track. Expensive but :shrugs: it's a one time operation
+    // Set up data array for each year for every analysis step
+    const { staticData, dynamicData } = years.reduce((acc, year) => {
+        acc.staticData[year] = {}
+        Object.keys(ret[0][0].staticClusters).forEach((key) => {
+            acc.staticData[year][key] = [];
+        });
+        acc.dynamicData[year] = { feature: [] };
+        return acc;
+    }, { staticData: {}, dynamicData: {}});
+
+    // Read data in from the records into data arrays for every year
     let xVal, yVal;
-    years.forEach(year => {
-        records.playlists.forEach((acc, userObj, userIdx) => {
+    records.playlists.forEach((userObj, userIdx) => {
+        years.forEach(year => {
             if (Object.keys(userObj).includes(year)) {
-                userObj[year].forEach(track => {
-                    Object.keys(data[year]).forEach((key, keyIdx) => {
-                        xVal = track[staticVars[keyIdx][0]]
-                        yVal = track[staticVars[keyIdx][1]]
+                userObj[year].forEach(([trackIdx, artistIdx, albumIdx]) => {
+                    // Add static data rows for this year/user/track
+                    Object.keys(staticData[year]).forEach((key, keyIdx) => {
+                        xVal = records.tracks.features.get(trackIdx, staticFeatureIndices[keyIdx][0]);
+                        yVal = records.tracks.features.get(trackIdx, staticFeatureIndices[keyIdx][1]);
                         if (xVal !== undefined && yVal !== undefined) {
-                            data[year][key].push([xVal, yVal])
+                            staticData[year][key].push([xVal, yVal]);
                         } else {
                             // We can't skip pushing ANY values, since that would change the length
                             // of the array. So go with 0s. TODO rework
-                            data[year][key].push([0, 0])
+                            staticData[year][key].push([0, 0]);
                         }
                     });
+
+                    // Add dynamic data row for this year/user/track
+                    dynamicData[year].feature.push(dynamicKeyIdxs.map(idx => records.tracks.features.get(trackIdx, idx)));
                 });
             }
-            return acc;
-        }, []);
+        });
     });
 
     // Run clustering for every year
     for (const yearIdx in years) {
         const year = years[yearIdx];
-        for (const key in data[year]) {
+        for (const key in staticData[year]) {
             // Initialize array
-            ret[yearIdx].staticClusters[key] = new Array(data[yearIdx][key].length)
+            // ret[yearIdx].staticClusters[key] = new Array(staticData[yearIdx][key].length)
+            // ret[yearIdx].dynamicClusters[key] = new Array(staticData[yearIdx][key].length)
 
             // Perform clustering
-            const clusterObj = await WCluster.cluster(data[key], {
+            console.log("Static clustering w/ data", year, key, staticData[year][key])
+            const clusterObj = await WCluster.cluster(staticData[year][key], {
+                mode: 'k-medoids',
+                kNumber: group.members.length,
+                nCompNIPALS: 2
+            });
+
+            // Update return object with resulting cluster assignments
+            console.log(key, year, "clustering done", clusterObj);
+            clusterObj.ginds.forEach((clusterGinds, k) => {
+                for (let trackIdx of clusterGinds) {
+                    const [userIdx, relativeTrackIdx] = getUserIdx(ret.playlists, trackIdx);
+                    if (userIdx === -1 || relativeTrackIdx === -1) {
+                        console.error("Couldn't find user given track idx", trackIdx);
+                    }
+                    ret[userIdx][yearIdx].staticClusters[key][relativeTrackIdx] = k;
+                }
+            });
+        }
+    }
+
+    console.log('[analysis] static clustering complete', ret);
+
+    // 3. Dynamic Feature Analysis
+    for (const yearIdx in years) {
+        const year = years[yearIdx];
+        for (const key in dynamicData[year]) {
+            // Perform PCA
+            // let newData = await WCluster.PCA(dynamicData[year][key], {NCompNIPALS: 2});
+
+            // Initialize array to store cluster assignments
+            ret[yearIdx].dynamicClusters.feature.assignments = new Array(dynamicData[year][key])
+
+            // Perform clustering on new axes
+            // Does PCA automatically??
+            const clusterObj = await WCluster.cluster(dynamicData[year][key], {
                 mode: 'k-medoids',
                 kNumber: group.members.length,
                 nCompNIPALS: 2
@@ -253,19 +297,13 @@ export const analyzeNewUserRecords = async (records, analysis, userId, group) =>
             clusterObj.ginds.forEach((clusterGinds, k) => {
                 for (let clusterIndices of clusterGinds) {
                     clusterIndices.forEach(trackIdx => {
-                        ret[yearIdx].staticClusters[key][trackIdx] = k;
+                        ret[yearIdx].dynamicClusters.feature.assignments[trackIdx] = k;
                     });
                 }
             });
         }
     }
-
-
-
-
-    // 3. Dynamic Feature Analysis
-    // 3.1 Cultural Graph (feature info)
-    // 3.2 Physical Graph (analysis info) (REACH)
+    console.log('[analysis] dynamic clustering complete', ret);
 
     // 4. Stat analysis
     // Determine stats by going track-by-track for every year/user
@@ -303,7 +341,7 @@ export const analyzeNewUserRecords = async (records, analysis, userId, group) =>
                     retObj.keyCounts[track[indices.key]]++;
                 }
 
-                const decade = track; // TODO
+                // const decade = track; // TODO
             });
         }
     }

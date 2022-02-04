@@ -17,8 +17,8 @@ const MongoStore = require('connect-mongo');
 const bodyParser = require('body-parser');
 const { totalUniqueSlugs, generateSlug } = require("random-word-slugs");
 
-const { validateEnv } = require('./utils');
-const { UserModel, GroupModel, RecordModel } = require('./models');
+const { validateEnv, cleanMongoDoc } = require('./utils');
+const { UserModel, GroupModel, RecordModel, AnalysisModel } = require('./models');
 const { EXPIRE_TIME, slugConfig, defaultRecord } = require('./constants');
 
 require('dotenv').config();
@@ -145,6 +145,7 @@ app.post("/groups", sessionAuth, async (req, res) => {
        await userDoc.save();
     }
 
+    cleanMongoDoc(groupDoc);
     return res.json(groupDoc);
 });
 
@@ -270,6 +271,7 @@ app.get("/users/me", async (req, res) => {
                 .catch(err => console.log('DB User insertion error:', err));
         }
 
+        cleanMongoDoc(userDoc);
         return res.json(userDoc);
     }
 
@@ -280,9 +282,12 @@ app.get('/groups/:groupName/record', async (req, res) => {
     const { groupName } = req.params;
     const groupDoc = await GroupModel.findOne({ name: groupName }).exec();
     if (!groupDoc) {
+        console.log("ERR /groups/record - invalid group name")
         return res.status(500).send({message: 'Invalid group name.'});
     }
+
     let ret = {};
+    let doSave = false;
 
     let recordDoc;
     if (groupDoc.record) {
@@ -290,20 +295,30 @@ app.get('/groups/:groupName/record', async (req, res) => {
     } else {
         recordDoc = await RecordModel.create(defaultRecord);
         groupDoc.record = recordDoc._id;
-        await groupDoc.save();
+        doSave = true;
     }
 
     let analysisDoc;
     if (groupDoc.analysis) {
-        recordDoc = await AnalysisModel.findOne({ _id: groupDoc.analysis }).exec();
+        analysisDoc = await AnalysisModel.findOne({ _id: groupDoc.analysis }).exec();
     } else {
-        recordDoc = await AnalysisModel.create(defaultRecord);
-        groupDoc.analysis = recordDoc._id;
+        console.log("Creating analysis doc");
+        analysisDoc = await AnalysisModel.create(defaultRecord);
+        groupDoc.analysis = analysisDoc._id;
+        doSave = true;
+    }
+
+    if (doSave) {
         await groupDoc.save();
     }
 
+    cleanMongoDoc(recordDoc);
+    cleanMongoDoc(analysisDoc);
+
     ret.record = recordDoc || null;
     ret.analysis = analysisDoc || null;
+    console.log("/groups/records ret", ret);
+
     return res.json(ret)
 });
 

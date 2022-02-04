@@ -30,7 +30,8 @@ const Dashboard = props => {
         members: [],
     });
     const [showPassword, setShowPassword] = useState(false);
-    const [songList, setSongList] = useState([]);
+    const [records, setRecords] = useState();
+    const [analysis, setAnalysis] = useState();
 
     const isLoading= useRef(false);
     // ----------------
@@ -49,16 +50,19 @@ const Dashboard = props => {
      * Queries the server for data tied to this group.
      */
     const fetchGroupData = async () => {
-        if (!groupState.name || groupState.name.length === 0 || !userId) {
+        console.log("[fetchGroupData]");
+        if (isLoading.current || !groupState.name || groupState.name.length === 0 || !userId) {
             return;
         }
-        
+        isLoading.current = true;
+
         const data = await query('/groups/'+groupState.name, 'GET');
         if (data.error) {
             console.log('[fetchGroupData] ERROR', data.error)
             return;
         }
 
+        isLoading.current = false;
         setGroupState(s => Object.assign({}, s, data, {
             iAmMember: isAuthenticated && data.members.find(member => member.id === userId)
         }));
@@ -80,17 +84,20 @@ const Dashboard = props => {
      * doesn't have any records uploaded.
      */
     const fetchRecordsAndAnalysis = async () => {
-        if (!isLoading.current) {
+        if (!isLoading.current && !records && groupState.members.length > 0) {
+            console.log("[fetchRecordsAndAnalysis]", groupState.name);
             isLoading.current = true;
 
             // Get the full lists of songs
-            const { record, analysis } = await query('/groups/'+groupState.name+'/record', 'GET').then(data => {
+            let { record, analysis } = await query('/groups/'+groupState.name+'/record', 'GET').then(data => {
                 if (data.error) {
                     console.error(data.error);
                     return {};
                 }
-                return data.record;
-            })
+                data.record.playlists = data.record.playlists.filter(e => Object.keys(e).length > 0);
+                return data;
+            });
+
             if (!record) {
                 console.error("Invalid /groups/record response", record);
                 return;
@@ -99,21 +106,26 @@ const Dashboard = props => {
             }
 
             // If this user is not yet reflected in the records
-            if (groupState.members.length > record.playlists.length && !record.playlists.some(playlist => playlist.userId === groupState.name)) {
-                const newRecords = await ingestIntoRecords(getSpotify(), groupState, userId, record);
-                if (!newRecords) {
+            const isNewUser = groupState.members.length > record.playlists.length;
+            const newUserIsMe = isNewUser && !record.playlists.some(playlist => playlist.userId === groupState.name);
+            console.log("[fetchRecordsAndAnalysis]", isNewUser, newUserIsMe, groupState, record);
+            if (newUserIsMe) {
+                record = await ingestIntoRecords(record, getSpotify(), groupState, userId);
+                if (!record) {
                     console.error("Failed to ingest into records");
                     return;
                 }
 
                 // Analyze
-                const newAnalysis = await analyzeNewUserRecords(newRecords, analysis, userId, groupState);
-                console.log("analysis", newAnalysis)
+                analysis = await analyzeNewUserRecords(record, analysis, userId, groupState);
+                console.log("analysis", analysis)
 
                 // Save to server
             }
 
 
+            setRecords(record);
+            setAnalysis(analysis);
             isLoading.current = false;
         }
     }
@@ -172,8 +184,8 @@ const Dashboard = props => {
     const trends = useMemo(generateTrends, []);
     const passcodeStr = useMemo(generatePasscodeStr, [groupState.passcode, groupState.iAmMember, showPassword])
     
-    useEffect(fetchGroupData, [groupState.name, userId]);
-    useEffect(() => { fetchRecordsAndAnalysis() }, [isAuthenticated, groupState.iAmMember, groupState.name]);
+    useEffect(() => { fetchGroupData() }, [groupState.name, userId]);
+    useEffect(() => { fetchRecordsAndAnalysis() }, [isAuthenticated, groupState.iAmMember, groupState.name, groupState.members.length]);
 
     return (
         <div className={"dashboard-container"}>
