@@ -377,12 +377,15 @@ function App() {
         const isIndex = layoutState.curPage === "index";
         return (
             <div className={"app-header"}>
-                <div className={`app-title-container`}>
-                    <div onClick={() => navigate('/')}>outtamusic</div>
+                <div onClick={() => navigate('/')} className={`app-title-container`}>
+                    <img src="/logo192.png" />
+                    <span>outtamusic</span>
                 </div>
 
+                <div className="spacer" />
+
                 {(!isIndex || authState.id) && <SpotifyAuthButton />}
-                
+
                 <Button className="app-header-menu-button" onClick={openMenu} >
                     <MenuIcon />
                 </Button>

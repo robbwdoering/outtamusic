@@ -302,9 +302,10 @@ app.get('/groups/:groupName/record', async (req, res) => {
     if (groupDoc.analysis) {
         analysisDoc = await AnalysisModel.findOne({ _id: groupDoc.analysis }).exec();
     } else {
-        console.log("Creating analysis doc");
+        console.log("Creating analysis doc", analysisDoc, groupDoc);
         analysisDoc = await AnalysisModel.create(defaultRecord);
         groupDoc.analysis = analysisDoc._id;
+        console.log("DONE w/ analysis doc", analysisDoc, groupDoc);
         doSave = true;
     }
 

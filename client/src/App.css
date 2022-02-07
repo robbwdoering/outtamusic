@@ -1,14 +1,59 @@
 .app-root .app-header {
+    margin: 0 auto;
     padding: 15px 20px;
     display: flex;
     align-items: center;
     height: 32px;
+    max-width: 1200px;
 }
 
+.app-root .app-header .app-title-container img {
+    height: 48px;
+    width: 48px;
+    margin-top: -12px;
+    margin-right: -10px;
+}
+
+.app-root .app-header .app-title-container > span {
+    display: inline-block;
+    flex-grow: 1;
+    /*overflow: hidden;*/
+    transition: width 0.5s;
+    align-self: flex-end;
+    font-size: 1.5rem;
+}
+
+.app-root .app-header .spacer {
+    flex-grow: 1;
+}
+
+.app-root .app-header .app-title-container {
+    display: flex;
+    width: 9rem;
+    font-size: 1.25rem;
+    height: 100%;
+    cursor: pointer;
+}
+
+.app-root .app-header .app-title-container.splash {
+    font-size: 2.25rem;
+    width: 25rem;
+}
+
+
+.app-root .app-header .app-title-container > span#feeling {
+    width: 0px;
+    flex-grow: 0;
+}
+.app-root .app-header .app-title-container.splash > span#feeling {
+    width: min-content;
+    flex-grow: 1;
+}
+
+
 .app-root .app-header  button.app-header-menu-button {
-    /*position: fixed;*/
-    /*right: 25px;*/
-    /*top: 12px;*/
+    justify-self: end;
+    float: right;
 }
 
 .MuiPopover-root.app-header-menu .MuiPaper-root {
@@ -25,37 +70,6 @@
     fill: #fff !important;
 }
 
-.app-root .app-header .app-title-container {
-    flex-grow: 1;
-    display: flex;
-    width: 9rem;
-    font-size: 1.25rem;
-}
-
-.app-root .app-header .app-title-container > div {
-    cursor: pointer;
-}
-
-.app-root .app-header .app-title-container.splash {
-    font-size: 2.25rem;
-    width: 25rem;
-}
-
-.app-root .app-header .app-title-container > span {
-    display: inline-block;
-    flex-grow: 1;
-    overflow: hidden;
-    transition: width 0.5s;
-}
-
-.app-root .app-header .app-title-container > span#feeling {
-    width: 0px;
-    flex-grow: 0;
-}
-.app-root .app-header .app-title-container.splash > span#feeling {
-    width: min-content;
-    flex-grow: 1;
-}
 
 .app-root .app-body {
     max-width: 1200px;
@@ -195,6 +209,8 @@ div.list-row span.list-label {
 
 .auth-index-container .existing-groups-container .group-card {
     padding: 10px;
+    width: 200px;
+    margin: 0 10px;
 }
 
 .auth-index-container .existing-groups-container .group-card .list-row {

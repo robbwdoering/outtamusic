@@ -255,7 +255,8 @@ export const analyzeNewUserRecords = async (records, analysis, userId, group) =>
             const clusterObj = await WCluster.cluster(staticData[year][key], {
                 mode: 'k-medoids',
                 kNumber: group.members.length,
-                nCompNIPALS: 2
+                nCompNIPALS: 2,
+                scale: false
             });
 
             // Update return object with resulting cluster assignments
@@ -289,7 +290,8 @@ export const analyzeNewUserRecords = async (records, analysis, userId, group) =>
             const clusterObj = await WCluster.cluster(dynamicData[year][key], {
                 mode: 'k-medoids',
                 kNumber: group.members.length,
-                nCompNIPALS: 2
+                nCompNIPALS: 2,
+                scale: false
             });
 
             // Update return object with resulting cluster assignments
