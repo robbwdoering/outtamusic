@@ -29,17 +29,20 @@ const AnalysisSchema = new Schema({
                 },
 
                 stats: {
-                    instrumentalCount: Number,
-                    liveCount: Number,
-                    majorCount: Number,
+                    instrumentalRatio: Number,
+                    liveRatio: Number,
+                    majorRatio: Number,
+                    singleToAlbumRatio: Number,
                     // variable keys
-                    trackCounts: Schema.Types.Mixed,
                     albumCounts: Schema.Types.Mixed,
                     artistCounts: Schema.Types.Mixed,
-                    decadeCounts: Schema.Types.Mixed,
+                    genreRatios: Schema.Types.Mixed,
+                    genreWeightedRatios: Schema.Types.Mixed,
                     // array index is tied to key
-                    keyCounts: [ Number ],
-                    // years x 5 (tracks) x 2 ([trackIdx, floatIdx]
+                    keyRatios: [ Number ],
+                    decadeRatios: [Number],
+                    decadeWeightedRatios: [Number],
+                    // years x 5 (tracks) x 2 ([trackIdx, float]
                     leastPopular: [ [ [Number, Number] ] ],
                     mostPopular: [ [ [Number, Number] ] ]
                 },

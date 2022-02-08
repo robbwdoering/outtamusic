@@ -121,8 +121,8 @@ const Dashboard = props => {
                 console.log("analysis", analysis)
 
                 // Save to server
+                query('/groups/'+groupState.name, 'POST', { record, analysis },);
             }
-
 
             setRecords(record);
             setAnalysis(analysis);

@@ -149,15 +149,40 @@ app.post("/groups", sessionAuth, async (req, res) => {
     return res.json(groupDoc);
 });
 
+app.post("/groups/:groupName/join", async (req, res) => {
+    const { groupName } = req.params;
+    const { passcode } = req.body;
+    console.log("POST /groups/join", groupName);
+
+
+    return res.json({five: 5});
+});
+
 /**
  * Modifies a group, such as by adding or deleting a member, or adding newly calculated data.
  */
 app.put("/groups/:groupName", sessionAuth, async (req, res) => {
     const { groupName } = req.params;
-    const { analysis, songList } = req.body;
+    const { record, analysis } = req.body;
     console.log("PUT /groups", groupName);
 
-    // Verify that the password is correct
+    const groupDoc = await GroupModel.find({name: groupName}).exec();
+    if (!groupDoc) {
+        return res.status(500).send({message: 'Invalid group'});
+    }
+
+    if (record) {
+        if (groupDoc.record) {
+            // Update existing entry
+            const recordDoc = await RecordModel.find({_id: groupDoc.record}).exec();
+
+        } else {
+            // Create new entry
+
+        }
+
+
+    }
 });
 
 /**

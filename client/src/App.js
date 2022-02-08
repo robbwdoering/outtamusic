@@ -540,8 +540,8 @@ function App() {
     // ---------
     // LIFECYCLE
     // ---------
-    useEffect(processPath, [window.location.pathname]);
-    useEffect(finishAuthentication, [authState.access_token])
+    useEffect(() => { processPath() }, [window.location.pathname]);
+    useEffect(() => { finishAuthentication() }, [authState.access_token])
 
     const path = window.location.pathname;
 

@@ -63,7 +63,7 @@ export const AlbumFeatures = {
         },
         {
             key: 'album_type',
-            customFunc: val => val === "album" ? 1 : 0
+            customFunc: album => album.album_type === "album" ? 1 : 0
         }
     ]
 };
@@ -71,6 +71,17 @@ export const AlbumFeatures = {
 // A list of data kept/analyzed for every artist
 export const ArtistFeatures = {
     artist: [
+        {
+            key: 'followers',
+            customFunc: artist => artist.followers ? artist.followers.total : 0
+        },
+        {
+            key: 'genres',
+            customFunc: artist => artist.genres
+        },
+        {
+            key: 'popularity'
+        }
     ]
 };
 
@@ -86,3 +97,16 @@ export const NumFeatures = {
 // }
 
 export const dynamicKeyIdxs = [1, 2, 3, 4, 5, 6, 7, 9];
+
+export const decadeBuckets = [
+    y => y < 1900,
+    y => y < 1950,
+    y => y < 1960,
+    y => y < 1970,
+    y => y < 1980,
+    y => y < 1990,
+    y => y < 2000,
+    y => y < 2010,
+    y => y < 2020,
+    y => true
+];
