@@ -8,8 +8,8 @@
 }
 
 .app-root .app-header .app-title-container img {
-    height: 48px;
-    width: 48px;
+    height: 38px;
+    /*width: 48px;*/
     margin-top: -12px;
     margin-right: -10px;
 }

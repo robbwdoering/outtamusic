@@ -1,6 +1,7 @@
 import './App.css';
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import {
+    CircularProgress,
     Card,
     CardActions,
     IconButton,
@@ -221,6 +222,12 @@ function App() {
         }));
     };
 
+    const setLoadingModal = (val) => {
+        setLayoutState(s => Object.assign({}, s, {
+            curModal: val ? "loading" : null
+        }));
+    };
+
     /**
      * 
      * @param path the path on the server
@@ -378,7 +385,7 @@ function App() {
         return (
             <div className={"app-header"}>
                 <div onClick={() => navigate('/')} className={`app-title-container`}>
-                    <img src="/logo192.png" />
+                    <img src="/symbol192.png" />
                     <span>outtamusic</span>
                 </div>
 
@@ -422,6 +429,11 @@ function App() {
         const submitJoinForm = () => {
             if (formState.groupName && formState.passcode) {
                 console.log("[submitJoinForm]", formState);
+                const body = {
+                    passcode: formState.passcode,
+                    userId: authState.id
+                };
+                query('/groups/'+formState.groupName+'/join', 'POST', body);
             }
 
             closeModal();
@@ -531,6 +543,16 @@ function App() {
                             </div>
                         </React.Fragment>
                     )}
+                    {layoutState.curModal === "loading" && (
+                        <React.Fragment>
+                            <h3>Joining group...</h3>
+                            <p>
+                                It usually takes me about 30-60 seconds to analyze your top songs and compare to your friends.
+                                Please sit tight and don't close this tab!
+                            </p>
+                            <CircularProgress />
+                        </React.Fragment>
+                    )}
                 </Paper>
             </Modal>
         );
@@ -557,6 +579,7 @@ function App() {
                         query={query}
                         openJoinModal={openJoinModal}
                         getSpotify={() => spotify.current}
+                        setLoadingModal={setLoadingModal}
                     />
                 )}
             </div>

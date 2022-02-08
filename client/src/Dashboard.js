@@ -20,11 +20,12 @@ import { ingestIntoRecords, analyzeNewUserRecords } from './analysis';
 // import { ClusterViz } from './ClusterViz';
 
 const Dashboard = props => {
-    const { isAuthenticated, query, openJoinModal, userId, getSpotify } = props;
+    const { isAuthenticated, query, openJoinModal, userId, getSpotify, setLoadingModal } = props;
 
     // ----------
     // STATE INIT
     // ----------
+    const [lastUpdated, setLastUpdated] = useState(0);
     const [groupState, setGroupState] = useState({
         name: window.location.pathname.substring(1),
         members: [],
@@ -50,8 +51,8 @@ const Dashboard = props => {
      * Queries the server for data tied to this group.
      */
     const fetchGroupData = async () => {
-        console.log("[fetchGroupData]");
-        if (isLoading.current || !groupState.name || groupState.name.length === 0 || !userId) {
+        console.log("[fetchGroupData]", groupState.name, isLoading.current);
+        if (isLoading.current || !groupState.name || groupState.name.length === 0) {
             return;
         }
         isLoading.current = true;
@@ -64,8 +65,10 @@ const Dashboard = props => {
 
         isLoading.current = false;
         setGroupState(s => Object.assign({}, s, data, {
-            iAmMember: isAuthenticated && data.members.find(member => member.id === userId)
+            iAmMember: userId && isAuthenticated && data.members.find(member => member.id === userId)
         }));
+
+        setTimeout(() => setLastUpdated(Date.now()), 1000);
     }
 
     const shareInvite = () => {
@@ -110,6 +113,7 @@ const Dashboard = props => {
             const newUserIsMe = isNewUser && !record.playlists.some(playlist => playlist.userId === groupState.name);
             console.log("[fetchRecordsAndAnalysis]", isNewUser, newUserIsMe, groupState, record);
             if (newUserIsMe) {
+                setLoadingModal(true);
                 record = await ingestIntoRecords(record, getSpotify(), groupState, userId);
                 if (!record) {
                     console.error("Failed to ingest into records");
@@ -121,7 +125,8 @@ const Dashboard = props => {
                 console.log("analysis", analysis)
 
                 // Save to server
-                query('/groups/'+groupState.name, 'POST', { record, analysis },);
+                query('/groups/'+groupState.name, 'PUT', { record, analysis });
+                setLoadingModal(false);
             }
 
             setRecords(record);

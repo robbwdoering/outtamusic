@@ -8,7 +8,16 @@
 import {Matrix} from 'ml-matrix';
 import WCluster from 'w-cluster'
 
-import {getUserIdx, normalize} from './utils';
+import {
+    getUserIdx,
+    normalize,
+    ingestTrack,
+    ingestAlbum,
+    getPlaylists,
+    getFeatures,
+    getArtistData,
+    truncateObj
+} from './utils';
 import {TrackFeatures, AlbumFeatures, ArtistFeatures, NumFeatures, dynamicKeyIdxs, decadeBuckets} from './constants';
 
 export const handleError = (err) => {
@@ -72,7 +81,7 @@ export const ingestIntoRecords = async (records, spotify, group, userId) => {
     console.log("Ingested tracks, final objects:", trackLists)
 
     // Determine the shape of all our arrays by counting the number of unique tracks
-    const {trackIds, albumIds, artistIds, genreNames} = years.reduce((acc, year) => {
+    const {trackIds, albumIds, artistIds} = years.reduce((acc, year) => {
         // console.log(year, trackLists[year])
 
         trackLists[year].forEach(track => {
@@ -80,8 +89,6 @@ export const ingestIntoRecords = async (records, spotify, group, userId) => {
             acc.albumIds.add(track.album.id);
             track.artists.forEach(artist => {
                 acc.artistIds.add(artist.id)
-                // artist.genres.forEach(genre => acc.genreNames.add(genre));
-                // TODO do this post-hoc instead, since it needs separate individual getArtist() calls
             });
         });
 
@@ -89,8 +96,7 @@ export const ingestIntoRecords = async (records, spotify, group, userId) => {
     }, {
         trackIds: new Set(newRecords.tracks.ids),
         albumIds: new Set(newRecords.albums.ids),
-        artistIds: new Set(newRecords.artists.ids),
-        genreNames: new Set(newRecords.genres)
+        artistIds: new Set(newRecords.artists.ids)
     });
     newRecords.tracks.ids = [...trackIds]
     newRecords.tracks.features = Matrix.zeros(newRecords.tracks.ids.length, NumFeatures.tracks);
@@ -149,7 +155,7 @@ export const ingestIntoRecords = async (records, spotify, group, userId) => {
         }
     }
 
-    const artistData = await getArtistData(spotify, newRecords);
+    await getArtistData(spotify, newRecords);
 
     console.log("[ingestIntoRecords] EXIT", newRecords);
     return newRecords;
@@ -195,18 +201,17 @@ export const analyzeNewUserRecords = async (records, analysis, userId, group) =>
                 }
             },
             stats: {
-                instrumentalCount: 0, // [ int ]
-                liveCount: 0, // [ int ]
+                instrumentalRatio: 0, // [ int ]
+                liveRatio: 0, // [ int ]
                 majorRatio: 0, // [  int ]
                 singleToAlbumRatio: 0, // [  int ]
-                trackCounts: {}, // [ { trackIdx: int } ]
                 albumCounts: {}, // [ { albumIdx: int } ]
                 artistCounts: {}, // [ { artistIdx: int } ]
-                genreCounts: {},
-                genreWeightedCounts: {},
-                decadeCounts: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0], // [ { decadeName: int } ]
-                decadeWeightedCounts: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0], // [ { decadeName: int } ]
-                keyCounts: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                genreRatios: {},
+                genreWeightedRatios: {},
+                keyRatios: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                decadeRatios: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0], // [ { decadeName: int } ]
+                decadeWeightedRatios: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0], // [ { decadeName: int } ]
                 leastPopular: [], // [ [ [trackIdx, float], ...] ] (yearsx5x2)
                 mostPopular: [], // [ [ [trackIdx, float], ...] ] (yearsx5x2)
             },
@@ -378,21 +383,19 @@ export const analyzeNewUserRecords = async (records, analysis, userId, group) =>
                 } else {
                     console.error("FAILED to ingest year:", year);
                 }
-                if (retObj.albumRatios[albumIdx]) {
-                    retObj.albumRatios[albumIdx] += 1;
+                if (retObj.albumCounts[albumIdx]) {
+                    retObj.albumCounts[albumIdx] += 1;
                 } else {
-                    retObj.albumRatios[albumIdx] = 1;
+                    retObj.albumCounts[albumIdx] = 1;
                 }
 
                 // Artists
                 artistIdxs.forEach(artistIdx => {
                     const artist = records.artists.features[artistIdx];
-                    if (retObj.artistRatios[artistIdx]) {
-                        retObj.artistRatios[artistIdx] += 1;
-                        retObj.artistWeightedRatios[artistIdx] += weight;
+                    if (retObj.artistCounts[artistIdx]) {
+                        retObj.artistCounts[artistIdx] += 1;
                     } else {
-                        retObj.artistRatios[artistIdx] = 1;
-                        retObj.artistWeightedRatios[artistIdx] = weight;
+                        retObj.artistCounts[artistIdx] = 1;
                     }
 
                     for (const genreIdx of artist[1]) {
@@ -411,30 +414,35 @@ export const analyzeNewUserRecords = async (records, analysis, userId, group) =>
                 const newEntry = [trackIdx, pop];
                 if (retObj.leastPopular.length < 5) {
                     retObj.leastPopular.push(newEntry)
-                } else if (pop < retObj.leastPopular[0][0]) {
+                    retObj.leastPopular.sort((lhs, rhs) => lhs[1] < rhs[1] ? -1 : 1)
+                } else if (pop < retObj.leastPopular[0][1]) {
                     retObj.leastPopular[0] = newEntry;
                     retObj.leastPopular.sort((lhs, rhs) => lhs[1] < rhs[1] ? -1 : 1)
                 }
 
                 if (retObj.mostPopular.length < 5) {
                     retObj.mostPopular.push(newEntry)
-                } else if (pop > retObj.mostPopular[0][0]) {
+                    retObj.mostPopular.sort((lhs, rhs) => lhs[1] > rhs[1] ? -1 : 1)
+                } else if (pop > retObj.mostPopular[0][1]) {
                     retObj.mostPopular[0] = newEntry;
                     retObj.mostPopular.sort((lhs, rhs) => lhs[1] > rhs[1] ? -1 : 1)
                 }
             });
 
-            // Truncate "top" counts
+            // Truncate top album/artist counts
             retObj.albumCounts = truncateObj(retObj.albumCounts);
             retObj.artistCounts = truncateObj(retObj.artistCounts);
 
-            const len = records.playlists[userIdx][year];
+            const len = records.playlists[userIdx][year].length;
             retObj.instrumentalRatio /= len;
             retObj.liveRatio /= len;
             retObj.majorRatio /= len;
             retObj.singleToAlbumRatio /= len;
             for (let idx in retObj.genreRatios) {
                 retObj.genreRatios[idx] /= len;
+            }
+            for (let idx in retObj.keyRatios) {
+                retObj.keyRatios[idx] /= len;
             }
         }
     }
@@ -444,166 +452,4 @@ export const analyzeNewUserRecords = async (records, analysis, userId, group) =>
     return ret;
 };
 
-const analyzeYearForUser = (records, analysis, userId, group, year) => {
-}
-
-
 // HELPER FUNCTIONS
-/**
- * Ingest data from a track into the return structure, from both track endpoints (/track and /feature).
- * @param ret the return structure
- * @param artists an album object, see endpoint docs
- */
-const ingestTrack = (ret, track, features, idx) => {
-    // Ingest track features from /track and /feature
-    TrackFeatures.track.forEach((feature, featureIdx) => {
-        ret.tracks.features.set(idx, featureIdx, track[feature.key]);
-    });
-    TrackFeatures.feature.forEach((feature, featureIdx) => {
-        const actIdx = featureIdx + TrackFeatures.track.length;
-        const val = features[feature.key]
-        ret.tracks.features.set(idx, actIdx, feature.customFunc ? feature.customFunc(val) : val);
-    });
-};
-
-/**
- * Ingest data from an album object into the return structure.
- * @param ret the return structure
- * @param artists an album object, see endpoint docs
- */
-const ingestAlbum = (ret, album) => {
-    const idx = ret.albums.ids.indexOf(album.id);
-    if (Boolean(ret.albums.features[idx])) {
-        return;
-    }
-
-    ret.albums.features[idx] = AlbumFeatures.album.map(feature => {
-        return feature.customFunc ? feature.customFunc(album) : album[feature.key];
-    });
-};
-
-/**
- * Ingest data from a list of artist objects into the return structure.
- * @param ret the return structure
- * @param artists a list of artist objects, see endpoint docs
- */
-const ingestArtist = (ret, artist) => {
-    const idx = ret.artists.ids.indexOf(artist.id);
-    if (Boolean(ret.artists.features[idx])) {
-        return;
-    }
-
-    ret.artists.features[idx] = ArtistFeatures.artist.map(feature => {
-        return feature.customFunc ? feature.customFunc(artist) : artist[feature.key];
-    });
-
-    // Replace genre strings with indices
-    if (ret.artists.features[idx][1]) {
-        for (const subIdx in ret.artists.features[idx][1]) {
-            const genre = ret.artists.features[idx][1][subIdx];
-            let foundIdx = ret.genres.indexOf(genre);
-
-            if (foundIdx === -1) {
-                ret.genres.push(genre);
-                foundIdx = ret.genres.length - 1;
-            }
-
-            ret.artists.features[idx][1][subIdx] = foundIdx;
-        }
-    }
-};
-
-/**
- * Fetches a list of all the "Top Songs" playlists for the currently authenticated user.
- * @param spotify the spotify api ob
- * @param userId the id of this user
- * @returns an array of objects, see endpoint docs
- */
-const getPlaylists = async (spotify, userId) => {
-    if (window.localStorage.getItem('cached_playlist_user') === userId && Date.now() < 1672578000000) {
-        console.log("Fetching cached playlists...")
-        return JSON.parse(window.localStorage.getItem('cached_playlist'));
-    }
-    return await spotify.getUserPlaylists(userId, {limit: 50})
-        .then(data => {
-            const ret = data.items.reduce((acc, playlist) => {
-                if (playlist.name && playlist.name.match(/^Your Top Songs 20\d\d$/g)) {
-                    const year = parseInt(playlist.name.split(' ')[3]);
-                    if (year && !Object.keys(acc).includes(year)) {
-                        acc[year] = playlist;
-                    }
-                }
-                return acc;
-            }, {});
-
-            window.localStorage.setItem('cached_playlist_user', userId);
-            window.localStorage.setItem('cached_playlist', JSON.stringify(ret));
-
-            return ret;
-        }, handleError);
-}
-
-/**
- * Fetches data for all the artists found in this group. Due to API constraints,
- * this is done in buckets of maximum length 50.
- * @param spotify the spotify api ob
- * @param userId the id of this user
- * @returns an array of objects, see endpoint docs
- */
-const getArtistData = async (spotify, ret) => {
-    const numRows = ret.artists.ids.length;
-    const firstNewRow = ret.artists.features.findIndex(row => !row || !row.length || row[0] === 0);
-    const numNewArtists = numRows - firstNewRow;
-    const numBuckets = Math.ceil(numNewArtists / 50);
-
-    for (let bId = 0; bId < numBuckets; bId++) {
-        const ids = ret.artists.ids.slice(firstNewRow, Math.min(firstNewRow + 50, numRows));
-        await spotify.getArtists(ids, {}).then(data => ingestArtist(ret, data), handleError);
-    }
-}
-
-/**
- * Fetches a list of "feature" objects for a list of tracks.
- * @param spotify
- * @param tracks
- * @param userId
- * @returns {Promise<void>}
- */
-const getFeatures = async (spotify, year, tracks, userId) => {
-    if (window.localStorage.getItem('cached_playlist_user') === userId && Date.now() < 1672578000000) {
-        const features = window.localStorage.getItem('cached_features_' + year)
-        if (features && features.length > 0) {
-            console.log("Fetching cached audio features for " + year + " ...")
-            return JSON.parse(features);
-        }
-    }
-
-    return await spotify.getAudioFeaturesForTracks(tracks).then(data => {
-        window.localStorage.setItem('cached_features_' + year, JSON.stringify(data));
-
-        if (!data.audio_features) {
-            return handleError("Invalid analysis results.");
-        }
-        return data;
-    }, handleError);
-}
-
-/**
- * Creates a new version of the passed object that only contains the top 5 most frequent entries.
- * @param obj { [ID]: [integer count]}
- * @returns A new copied object with a maximum of 5 keys.
- */
-const truncateObj = (obj) => {
-    // Create a sorted array of all the entries that were found twice in one playlist
-    const tmpArr = Object.keys(obj)
-        .filter(key => obj[key] > 1);
-    tmpArr.sort();
-
-    // Return the top 5 most frequent entries
-    return tmpArr.reduce((acc, key) => {
-        if (Object.keys(acc).length < 5) {
-            acc[key] = obj[key];
-        }
-        return acc;
-    }, {});
-}

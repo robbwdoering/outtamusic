@@ -14,8 +14,6 @@ const AnalysisSchema = new Schema({
         [
             {
                 relations: [Number],
-
-                // cluster vars are assignments, where idx is
                 staticClusters: {
                     valence_tempo: [Number],
                     danceability_energy: [Number],
@@ -24,10 +22,10 @@ const AnalysisSchema = new Schema({
                 dynamicClusters: {
                     feature: {
                         PCA: Schema.Types.Mixed,
-                        assignments: [Number]
+                        assignments: [Number],
+                        relations: [Number]
                     }
                 },
-
                 stats: {
                     instrumentalRatio: Number,
                     liveRatio: Number,
@@ -60,13 +58,13 @@ const RecordSchema = new Schema({
     },
     artists: {
         ids:  [String],
-        features: [[Number]]
+        features: [Schema.Types.Mixed]
     },
     albums: {
         ids: [String],
-        features: [[Number]]
+        features: [Schema.Types.Mixed]
     },
-    playlists: [Schema.Types.Mixed], // Don't want to use dynamic keys
+    playlists: [Schema.Types.Mixed],
     genres: [String]
 });
 const RecordModel = mongoose.model('Record', RecordSchema);
@@ -85,7 +83,7 @@ const GroupSchema = new Schema({
     },
     members: [ String ],
     matchScore: Number,
-    passcode: Number,
+    passcode: String,
     playlists: [
         {
             year: {type: Number, required: true},
@@ -93,9 +91,7 @@ const GroupSchema = new Schema({
         }
     ],
     record: ObjectId,
-    staticAnalysis: ObjectId,
-    dynamicAnalysis: ObjectId,
-    statAnalysis: ObjectId
+    analysis: ObjectId
 });
 const GroupModel = mongoose.model('Group', GroupSchema);
 module.exports.GroupModel = GroupModel;

@@ -151,11 +151,30 @@ app.post("/groups", sessionAuth, async (req, res) => {
 
 app.post("/groups/:groupName/join", async (req, res) => {
     const { groupName } = req.params;
-    const { passcode } = req.body;
+    const { passcode, userId } = req.body;
     console.log("POST /groups/join", groupName);
+    const groupDoc = await GroupModel.findOne({name: groupName}).exec();
+    if (!groupDoc) {
+        return res.status(500).send({message: 'Invalid group name'});
+    }
 
+    if (passcode && passcode === groupDoc.passcode) {
+        const userDoc = await UserModel.findOne({id: userId}).exec();
+        if (!userDoc) {
+            return res.status(500).send({message: 'Invalid userId'});
+        }
+        if (groupDoc.members.includes(userId) || userDoc.groups.includes(groupName)) {
+            return res.status(503).send({message:'Already part of this group.'});
+        }
 
-    return res.json({five: 5});
+        groupDoc.members = groupDoc.members.concat([userId]);
+        userDoc.groups = userDoc.groups.concat([groupName]);
+
+        await groupDoc.save();
+        await userDoc.save();
+    }
+
+    return res.status(503).send({message:'Unauthorized.'});
 });
 
 /**
@@ -165,24 +184,61 @@ app.put("/groups/:groupName", sessionAuth, async (req, res) => {
     const { groupName } = req.params;
     const { record, analysis } = req.body;
     console.log("PUT /groups", groupName);
+    let doSave = false;
 
-    const groupDoc = await GroupModel.find({name: groupName}).exec();
+    const groupDoc = await GroupModel.findOne({name: groupName}).exec();
     if (!groupDoc) {
         return res.status(500).send({message: 'Invalid group'});
     }
 
     if (record) {
+        let recordDoc;
         if (groupDoc.record) {
             // Update existing entry
-            const recordDoc = await RecordModel.find({_id: groupDoc.record}).exec();
-
+            recordDoc = await RecordModel.findOne({_id: groupDoc.record}).exec();
+            if (!recordDoc) {
+                return res.status(500).send({message: 'Invalid record'});
+            }
+            Object.assign(recordDoc, record);
+            await recordDoc.save();
         } else {
             // Create new entry
-
+            recordDoc = await RecordModel.create(record);
+            if (!recordDoc) {
+                return res.status(500).send({message: 'Internal error.'});
+            }
+            groupDoc.record = recordDoc._id;
+            doSave = true;
         }
-
-
+        console.log('Record changed: ', recordDoc)
     }
+
+    if (analysis) {
+        let analysisDoc;
+        if (groupDoc.analysis) {
+            // Update existing entry
+            analysisDoc = await AnalysisModel.findOne({_id: groupDoc.analysis}).exec();
+            if (!analysisDoc) {
+                return res.status(500).send({message: 'Invalid analysis'});
+            }
+            Object.assign(analysisDoc.data, analysis);
+            await analysisDoc.save();
+        } else {
+            // Create new entry
+            analysisDoc = await AnalysisModel.create({ data: analysis });
+            if (!analysisDoc) {
+                return res.status(500).send({message: 'Internal error.'});
+            }
+            groupDoc.analysis = analysisDoc._id;
+            doSave = true;
+        }
+        console.log('Analysis changed: ', analysisDoc)
+    }
+
+    if (doSave) {
+        await groupDoc.save();
+    }
+    return res.status(200);
 });
 
 /**
