@@ -16,9 +16,10 @@ import {
     getPlaylists,
     getFeatures,
     getArtistData,
-    truncateObj
+    truncateObj,
+    getPlaylistTracks
 } from './utils';
-import {TrackFeatures, AlbumFeatures, ArtistFeatures, NumFeatures, dynamicKeyIdxs, decadeBuckets} from './constants';
+import {TrackFeatures, AlbumFeatures, ArtistFeatures, NumFeatures, dynamicKeyIdxs, decadeBuckets, years} from './constants';
 
 export const handleError = (err) => {
     console.error(err);
@@ -52,7 +53,7 @@ export const ingestIntoRecords = async (records, spotify, group, userId) => {
             ids: records.albums.ids || [],
             features: null
         },
-        playlists: [...(records.playlists || []), {userId}],
+        playlists: [...(records.playlists || []), {}],
         genres: records.genres || []
     };
 
@@ -62,22 +63,9 @@ export const ingestIntoRecords = async (records, spotify, group, userId) => {
         return null;
     }
     const userIdx = newRecords.playlists.length - 1;
-    const years = Object.keys(playlists);
-    years.sort();
-    console.log("Calculating results for years:", years);
 
     // Ingest tracks for every playlist
-    const trackLists = {}
-    for (let i = 0; i < years.length; i++) {
-        const year = years[i];
-
-        await spotify.getPlaylistTracks(playlists[year].id, {})
-            .then(data => {
-                // Get all non-local tracks within this playlist
-                trackLists[year] = data.items.map(item => item.is_local ? null : item.track).filter(e => e);
-            }, handleError);
-    }
-
+    const trackLists = await getPlaylistTracks(spotify, userId, playlists);
     console.log("Ingested tracks, final objects:", trackLists)
 
     // Determine the shape of all our arrays by counting the number of unique tracks
@@ -119,9 +107,9 @@ export const ingestIntoRecords = async (records, spotify, group, userId) => {
     const processedTracks = newRecords.tracks.ids.map(() => false);
 
     // Get features for every track, and ingest it all into a set of numeric arrays
-    for (let i = 0; i < years.length; i++) {
-        const year = years[i];
-        newRecords.playlists[userIdx][year] = [];
+    for (let yearIdx = 0; yearIdx < years.length; yearIdx++) {
+        const year = years[yearIdx];
+        newRecords.playlists[userIdx][yearIdx] = [];
 
         const data = await getFeatures(spotify, year, trackLists[year].map(track => track.id), userId);
         if (!data) {
@@ -147,7 +135,7 @@ export const ingestIntoRecords = async (records, spotify, group, userId) => {
             ingestAlbum(newRecords, track.album);
 
             // Record this song's presence, and tie it an album and set of artists
-            newRecords.playlists[userIdx][year].push([
+            newRecords.playlists[userIdx][yearIdx].push([
                 newRecords.tracks.ids.indexOf(track.id), // track record IDX
                 newRecords.albums.ids.indexOf(track.album.id), // album IDX
                 track.artists.map(artist => newRecords.artists.ids.indexOf(artist.id)) // artist IDXs
@@ -171,18 +159,6 @@ export const ingestIntoRecords = async (records, spotify, group, userId) => {
  * @returns
  */
 export const analyzeNewUserRecords = async (records, analysis, userId, group) => {
-    // Count years and built initial analysis object
-    const myUserIdx = records.playlists.indexOf(playlist => playlist.userId === userId);
-    let years = records.playlists.reduce((acc, userObj) => {
-        Object.keys(userObj).filter(e => e !== "userId").forEach(year => {
-            acc.add(year);
-        })
-        return acc;
-    }, new Set());
-    years = [...years];
-    years.sort();
-    console.log(`This group is now using ${years.length} years, ${years[0]}-${years[years.length - 1]}`)
-
     // Calculate one object per year for this user
     const ret = records.playlists.map((userObj) => (
         years.map((year) => ({

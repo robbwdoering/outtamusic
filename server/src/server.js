@@ -106,6 +106,7 @@ app.get("/groups/:groupName", async (req, res) => {
         const userDoc = userDocs.find(doc => doc.id === userId);
         ret.members[i].name = userDoc.name;
         ret.members[i].img = userDoc.img;
+        ret.members[i].playlists = userDoc.playlists;
     }
 
     return res.json(ret);
@@ -211,6 +212,9 @@ app.put("/groups/:groupName", sessionAuth, async (req, res) => {
             doSave = true;
         }
         console.log('Record changed: ', recordDoc)
+
+        // When records change, update the new user's list of playlists if necessary
+
     }
 
     if (analysis) {
@@ -395,7 +399,7 @@ app.get('/groups/:groupName/record', async (req, res) => {
     }
 
     cleanMongoDoc(recordDoc);
-    cleanMongoDoc(analysisDoc);
+    analysisDoc = analysisDoc.data;
 
     ret.record = recordDoc || null;
     ret.analysis = analysisDoc || null;

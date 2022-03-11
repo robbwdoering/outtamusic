@@ -84,12 +84,6 @@ const GroupSchema = new Schema({
     members: [ String ],
     matchScore: Number,
     passcode: String,
-    playlists: [
-        {
-            year: {type: Number, required: true},
-            id: {type: String, required: true}
-        }
-    ],
     record: ObjectId,
     analysis: ObjectId
 });
@@ -107,6 +101,12 @@ const UserSchema = new Schema({
     },
     img: String,
     idExpiresAt: Date,
+    playlists: [
+        {
+            year: {type: Number, required: true},
+            id: {type: String, required: true}
+        }
+    ],
     groups: [String]
 });
 const UserModel = mongoose.model('User', UserSchema);

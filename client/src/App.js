@@ -59,6 +59,7 @@ function App() {
     });
     const [menuAnchor, setMenuAnchor] = useState(null);
     const isAuthenticated = Boolean(authState.id);
+    const [filters, setFilters] = useState(null)
 
     const spotify = useRef(new Spotify());
 
@@ -282,6 +283,14 @@ function App() {
 
         navigate('/'+groupName);
     };
+
+    const changeFilters = event => {
+        const { user_idx, year_idx} = event.target;
+        if (user_idx && year_idx) {
+            let newFilters = [...filters]
+            const isFiltered = newFilters[user_idx][year_idx]
+        }
+    }
 
 
     // -----------------
@@ -580,6 +589,8 @@ function App() {
                         openJoinModal={openJoinModal}
                         getSpotify={() => spotify.current}
                         setLoadingModal={setLoadingModal}
+                        filters={filters}
+                        changeFilters={changeFilters}
                     />
                 )}
             </div>

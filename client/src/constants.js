@@ -110,3 +110,12 @@ export const decadeBuckets = [
     y => y < 2020,
     y => true
 ];
+
+export const years = [
+    2016,
+    2017,
+    2018,
+    2019,
+    2020,
+    2021
+]

@@ -1,5 +1,5 @@
 import * as d3 from "d3";
-import {AlbumFeatures, ArtistFeatures, TrackFeatures} from "./constants";
+import {AlbumFeatures, ArtistFeatures, TrackFeatures, years} from "./constants";
 import {handleError} from "./analysis";
 
 export const getUserIdx = (playlists, year, trackIdx) => {
@@ -95,7 +95,7 @@ export const ingestArtist = (ret, artist) => {
  * @returns an array of objects, see endpoint docs
  */
 export const getPlaylists = async (spotify, userId) => {
-    if (window.localStorage.getItem('cached_playlist_user') === userId && Date.now() < 1672578000000) {
+    if (isCachePresent(userId)) {
         console.log("Fetching cached playlists...")
         return JSON.parse(window.localStorage.getItem('cached_playlist'));
     }
@@ -116,6 +116,38 @@ export const getPlaylists = async (spotify, userId) => {
 
             return ret;
         }, handleError);
+}
+
+/**
+ *
+ * @param spotify the spotify API object
+ * @param userId unique id of this user
+ * @param playlists { [year]: {playlist_obj} }
+ * @returns Array with a list of track objects for every year
+ */
+export const getPlaylistTracks = async (spotify, userId, playlists) => {
+    const ret = years.map((year) => []);
+    for (const yearIdx in years) {
+        const year = years[yearIdx];
+        if (!playlists[year]) {
+            continue;
+        }
+
+        if (isCachePresent(userId)) {
+            const tracks = window.localStorage.getItem('cached_playlist_tracks_' + year)
+            if (tracks && tracks.length > 0) {
+                console.log("Fetching cached tracks for playlist " + year + " ...")
+                ret[yearIdx] = JSON.parse(tracks);
+            }
+        }
+
+        await spotify.getPlaylistTracks(playlists[year].id, {})
+            .then(data => {
+                // Get all non-local tracks within this playlist
+                ret[yearIdx] = data.items.map(item => item.is_local ? null : item.track).filter(e => e);
+            }, handleError);
+    }
+    return ret;
 }
 
 /**
@@ -152,7 +184,7 @@ export const getArtistData = async (spotify, ret) => {
  * @returns {Promise<void>}
  */
 export const getFeatures = async (spotify, year, tracks, userId) => {
-    if (window.localStorage.getItem('cached_playlist_user') === userId && Date.now() < 1672578000000) {
+    if (isCachePresent(userId)) {
         const features = window.localStorage.getItem('cached_features_' + year)
         if (features && features.length > 0) {
             console.log("Fetching cached audio features for " + year + " ...")
@@ -188,4 +220,27 @@ export const truncateObj = (obj) => {
         }
         return acc;
     }, {});
+}
+
+export const constructTracklist = (records, filters, constructTracks) => {
+    console.log("[constructTracklist]", records)
+    let ret = [];
+    records.forEach((userObj, userIdx) => {
+        if (filters && filters.members && !filters.members.includes(userIdx)) {
+            return;
+        }
+        userObj.forEach((tracks) => {
+            ret = ret.concat(constructTracks ? constructTracks(tracks) : [...tracks]);
+        });
+    });
+    return ret;
+}
+
+export const isCachePresent = userId => {
+    const cachedUser = window.localStorage.getItem('cached_playlist_user');
+    if (!cachedUser || cachedUser.length === 0 || cachedUser !== userId) {
+        window.localStorage.clear();
+        return false;
+    }
+    return Date.now() < 1672578000000;
 }

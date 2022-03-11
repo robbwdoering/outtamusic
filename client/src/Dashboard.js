@@ -1,4 +1,5 @@
 import {
+    Avatar,
     IconButton,
     Box,
     Paper,
@@ -9,18 +10,21 @@ import {
     TableRow,
     TableHead,
     TableContainer,
-    Collapse
+    Collapse, Card, CardActions
 } from "@mui/material";
 import ShareIcon from "@mui/icons-material/Share";
 import VisibilityIcon from "@mui/icons-material/Visibility";
 import KeyboardArrowUpIcon from "@mui/icons-material/KeyboardArrowUp";
 import KeyboardArrowDownIcon from "@mui/icons-material/KeyboardArrowDown";
+import LinkIcon from "@mui/icons-material/Link";
 import React, {useState, useMemo, useEffect, useRef} from "react";
-import { ingestIntoRecords, analyzeNewUserRecords } from './analysis';
-// import { ClusterViz } from './ClusterViz';
+import {ingestIntoRecords, analyzeNewUserRecords} from './analysis';
+import { ClusterViz } from './ClusterViz';
+import { TrendViz } from './TrendViz';
+import { years } from './constants';
 
 const Dashboard = props => {
-    const { isAuthenticated, query, openJoinModal, userId, getSpotify, setLoadingModal } = props;
+    const {isAuthenticated, query, openJoinModal, userId, getSpotify, setLoadingModal, changeFilters} = props;
 
     // ----------
     // STATE INIT
@@ -34,13 +38,13 @@ const Dashboard = props => {
     const [records, setRecords] = useState();
     const [analysis, setAnalysis] = useState();
 
-    const isLoading= useRef(false);
+    const isLoading = useRef(false);
     // ----------------
     // MEMBER FUNCTIONS
     // ----------------
     /**
      * Generates an array of "trend" objects, each of which describes one line or bar chart
-     * to be shown on the dashboard. 
+     * to be shown on the dashboard.
      * Note that this is pre-processing - the actual graph rendering is done in <TrendViz/>.
      */
     const generateTrends = () => {
@@ -57,7 +61,7 @@ const Dashboard = props => {
         }
         isLoading.current = true;
 
-        const data = await query('/groups/'+groupState.name, 'GET');
+        const data = await query('/groups/' + groupState.name, 'GET');
         if (data.error) {
             console.log('[fetchGroupData] ERROR', data.error)
             return;
@@ -76,7 +80,7 @@ const Dashboard = props => {
 
     const generatePasscodeStr = () => {
         if (groupState.passcode && groupState.iAmMember) {
-            return showPassword ? groupState.passcode : Array((''+groupState.passcode).length+1).join('*')
+            return showPassword ? groupState.passcode : Array(('' + groupState.passcode).length + 1).join('*')
         }
         return "*******";
     }
@@ -92,7 +96,7 @@ const Dashboard = props => {
             isLoading.current = true;
 
             // Get the full lists of songs
-            let { record, analysis } = await query('/groups/'+groupState.name+'/record', 'GET').then(data => {
+            let {record, analysis} = await query('/groups/' + groupState.name + '/record', 'GET').then(data => {
                 if (data.error) {
                     console.error(data.error);
                     return {};
@@ -108,25 +112,18 @@ const Dashboard = props => {
                 record.playlists = [];
             }
 
+            if (analysis) {
+               analysis = analysis.data;
+            }
+
             // If this user is not yet reflected in the records
             const isNewUser = groupState.members.length > record.playlists.length;
             const newUserIsMe = isNewUser && !record.playlists.some(playlist => playlist.userId === groupState.name);
-            console.log("[fetchRecordsAndAnalysis]", isNewUser, newUserIsMe, groupState, record);
+            console.log("[fetchRecordsAndAnalysis]", isNewUser, newUserIsMe, groupState, record, analysis);
             if (newUserIsMe) {
-                setLoadingModal(true);
-                record = await ingestIntoRecords(record, getSpotify(), groupState, userId);
-                if (!record) {
-                    console.error("Failed to ingest into records");
-                    return;
-                }
-
-                // Analyze
-                analysis = await analyzeNewUserRecords(record, analysis, userId, groupState);
-                console.log("analysis", analysis)
-
-                // Save to server
-                query('/groups/'+groupState.name, 'PUT', { record, analysis });
-                setLoadingModal(false);
+                const { newRecord, newAnalysis } = await addSelfToRecords(record, analysis);
+                record = newRecord;
+                analysis = newAnalysis;
             }
 
             setRecords(record);
@@ -135,23 +132,49 @@ const Dashboard = props => {
         }
     }
 
+    /**
+     * Add the current user to the record and analysis objects, notifying the server of the join action as well
+     * so that it can be saved to the database.
+     * @param record records of all other users
+     * @param analysis analysis of all other users
+     * @returns { newRecord, newAnalysis } containing what was just sent to the server
+     */
+    const addSelfToRecords = async (record, analysis) => {
+        setLoadingModal(true);
+        const newRecord = await ingestIntoRecords(record, getSpotify(), groupState, userId);
+        if (!newRecord) {
+            console.error("Failed to ingest into records");
+            return;
+        }
+
+        // Analyze
+        const newAnalysis = await analyzeNewUserRecords(newRecord, analysis, userId, groupState);
+        console.log("analysis", newAnalysis)
+
+        // Save to server
+        query('/groups/' + groupState.name, 'PUT', {newRecord, analysis});
+        setLoadingModal(false);
+
+        return { newRecord, newAnalysis };
+    }
+
     // -----------------
     // NESTED COMPONENTS
     // -----------------
     const StatRow = props => {
-        const { name, values } = props.row;
+        const {name, values} = props.row;
         const [open, setOpen] = useState(false);
 
         return (
             <React.Fragment>
-                <TableRow sx={{ '& > *': { borderBottom: 'unset' } }}>
+                <TableRow sx={{'& > *': {borderBottom: 'unset'}}}>
                     <TableCell>
                         <IconButton
                             aria-label="expand row"
                             size="small"
                             onClick={() => setOpen(!open)}
                         >
-                            {open ? <KeyboardArrowUpIcon /> : <KeyboardArrowDownIcon />}
+                            {open ? <KeyboardArrowUpIcon/> : <KeyboardArrowDownIcon/>}
                         </IconButton>
                     </TableCell>
                     <TableCell component="th" scope="row">
@@ -162,9 +185,9 @@ const Dashboard = props => {
                     ))}
                 </TableRow>
                 <TableRow>
-                    <TableCell style={{ paddingBottom: 0, paddingTop: 0 }} colSpan={6}>
+                    <TableCell style={{paddingBottom: 0, paddingTop: 0}} colSpan={6}>
                         <Collapse in={open} timeout="auto" unmountOnExit>
-                            <Box sx={{ margin: 1 }}>
+                            <Box sx={{margin: 1}}>
                                 hey!
                             </Box>
                         </Collapse>
@@ -174,30 +197,58 @@ const Dashboard = props => {
         )
     };
 
-    const TrendViz = props => {
-        return (
-            <div>
-                TrendViz
+    /**
+     * Renders a card describing a member. Currently, contains basically no interaction.
+     * @param member The object describing this member
+     */
+    const MemberCard = ({ member, userIdx }) => (
+        <Card className={"member-card"}>
+            <Avatar alt={member.name} src={member.img}/>
+            <div className={'list-row'}>
+                <span className={"list-label"}>NAME</span>
+                <span>{member.name}</span>
             </div>
-
-        );
-    }
+            <div className={'list-row'}>
+                <span className={"list-label"}>PLAYLISTS</span>
+                <span>{member.playlists && member.playlists.map((e,i) => (
+                    <React.Fragment>
+                        <Button
+                            user_idx={userIdx}
+                            year_idx={years.indexOf(e.year)}
+                            onClick={changeFilters}
+                        >{e.year}</Button>j
+                        <IconButton
+                            size="small"
+                            onClick={() => window.open(e.href, '_blank')}
+                        >
+                            <LinkIcon/>
+                        </IconButton>
+                    </React.Fragment>
+                ))}</span>
+            </div>
+        </Card>
+    );
 
     // ---------
     // LIFECYCLE
     // ---------
     const trends = useMemo(generateTrends, []);
     const passcodeStr = useMemo(generatePasscodeStr, [groupState.passcode, groupState.iAmMember, showPassword])
-    
-    useEffect(() => { fetchGroupData() }, [groupState.name, userId]);
-    useEffect(() => { fetchRecordsAndAnalysis() }, [isAuthenticated, groupState.iAmMember, groupState.name, groupState.members.length]);
 
+    useEffect(() => {
+        fetchGroupData()
+    }, [groupState.name, userId]);
+    useEffect(() => {
+        fetchRecordsAndAnalysis()
+    }, [isAuthenticated, groupState.iAmMember, groupState.name, groupState.members.length]);
+
+    console.log(groupState.members);
     return (
         <div className={"dashboard-container"}>
             <div className={'group-admin-container'}>
                 <h3>Members:</h3>
                 <div className={'member-list'}>
-                    
+                    {groupState.members.map((member, idx) => <MemberCard key={idx} member={member} userIdx={idx}/>)}
                 </div>
                 <div className={'list-row'}>
                     <span className={"list-label"}>LINK</span>
@@ -207,42 +258,43 @@ const Dashboard = props => {
                     <span className={"list-label"}>PASSCODE</span>
                     <span className={"list-contents"}> {passcodeStr} </span>
                     <Button disabled={!groupState.iAmMember} onClick={() => setShowPassword(s => !s)}>
-                        <VisibilityIcon />
+                        <VisibilityIcon/>
                     </Button>
 
                     {
-                       groupState.iAmMember ? (
-                           <Button className={"share-button"} variant={"contained"} onClick={shareInvite}>
-                               <span>Share Invite</span>
-                               <ShareIcon fontSize={"small"} />
-                           </Button>
-                       ) : (
-                           <Button disabled={!isAuthenticated} className={"share-button"} variant={"contained"} onClick={openJoinModal}>
-                               <span>Join</span>
-                               <ShareIcon fontSize={"small"} />
-                           </Button>
+                        groupState.iAmMember ? (
+                            <Button className={"share-button"} variant={"contained"} onClick={shareInvite}>
+                                <span>Share Invite</span>
+                                <ShareIcon fontSize={"small"}/>
+                            </Button>
+                        ) : (
+                            <Button disabled={!isAuthenticated} className={"share-button"} variant={"contained"}
+                                    onClick={openJoinModal}>
+                                <span>Join</span>
+                                <ShareIcon fontSize={"small"}/>
+                            </Button>
 
-                       )
+                        )
                     }
                 </div>
             </div>
 
             <h3>1. Clusters</h3>
-            {/*<ClusterViz />*/}
-            
+            <ClusterViz records={records} analysis={analysis}/>
+
             <h3>2. Trends</h3>
             {trends && trends.map(trend => (
-               <TrendViz /> 
+                <TrendViz/>
             ))}
-            
+
             <h3>3. Stats</h3>
             <Table>
                 <TableContainer component={Paper}>
                     <Table aria-label="collapsible table">
                         <TableHead>
                             <TableRow>
-                                <TableCell />
-                                <TableCell />
+                                <TableCell/>
+                                <TableCell/>
                                 <TableCell align="right">Overall</TableCell>
                                 {groupState.members.map(member => (
                                     <TableCell align="right">{member.name}</TableCell>
@@ -251,11 +303,11 @@ const Dashboard = props => {
                         </TableHead>
                         <TableBody>
                             {[].map((row) => (
-                                <StatRow key={row.name} row={row} />
+                                <StatRow key={row.name} row={row}/>
                             ))}
                         </TableBody>
                     </Table>
-                </TableContainer>                
+                </TableContainer>
             </Table>
         </div>
     );
