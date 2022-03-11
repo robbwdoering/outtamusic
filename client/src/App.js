@@ -111,6 +111,7 @@ function App() {
                 expires_in: params.get('expires_in')
             }));
             spotify.current.setAccessToken(access_token);
+            setLastUpdated(Date.now());
 
             // Determine where to redirect, depending on if they're joining or creating
             if (state && state.length > 0) {
@@ -573,8 +574,6 @@ function App() {
     // ---------
     useEffect(() => { processPath() }, [window.location.pathname]);
     useEffect(() => { finishAuthentication() }, [authState.access_token])
-
-    const path = window.location.pathname;
 
     return (
         <div id="app-root" className="app-root">

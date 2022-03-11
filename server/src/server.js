@@ -15,7 +15,7 @@ const { ObjectId } = require('mongodb');
 const session = require('express-session');
 const MongoStore = require('connect-mongo');
 const bodyParser = require('body-parser');
-const { totalUniqueSlugs, generateSlug } = require("random-word-slugs");
+const { generateSlug } = require("random-word-slugs");
 
 const { validateEnv, cleanMongoDoc } = require('./utils');
 const { UserModel, GroupModel, RecordModel, AnalysisModel } = require('./models');
@@ -179,7 +179,7 @@ app.post("/groups/:groupName/join", async (req, res) => {
 });
 
 /**
- * Modifies a group, such as by adding or deleting a member, or adding newly calculated data.
+ * Adds someone's analysis and data to a group
  */
 app.put("/groups/:groupName", sessionAuth, async (req, res) => {
     const { groupName } = req.params;
@@ -187,9 +187,13 @@ app.put("/groups/:groupName", sessionAuth, async (req, res) => {
     console.log("PUT /groups", groupName);
     let doSave = false;
 
+    const userDoc = await UserModel.findOne({ id: req.session.spotifyId }).exec();
+
     const groupDoc = await GroupModel.findOne({name: groupName}).exec();
     if (!groupDoc) {
         return res.status(500).send({message: 'Invalid group'});
+    } else if (!groupDoc.members.includes(req.session.spotifyId)) {
+        return res.status(500).send({message: 'Unauthorized group'});
     }
 
     if (record) {
@@ -214,7 +218,9 @@ app.put("/groups/:groupName", sessionAuth, async (req, res) => {
         console.log('Record changed: ', recordDoc)
 
         // When records change, update the new user's list of playlists if necessary
-
+        if (userDoc.playlists.length === 0) {
+            userDoc.playlists = [...record.playlistIds[record.playlistIds.length - 1]];
+        }
     }
 
     if (analysis) {
@@ -243,6 +249,10 @@ app.put("/groups/:groupName", sessionAuth, async (req, res) => {
         await groupDoc.save();
     }
     return res.status(200);
+});
+
+app.post('/groups/refresh-playlist', sessionAuth, async (req, res) => {
+    // Connect to spotify
 });
 
 /**
@@ -307,7 +317,6 @@ app.get("/users/me", async (req, res) => {
         }
 
         // Send the message, storing success on response
-        console.log("auth fetch...", requestUrl)
         await fetch(requestUrl, fetchOptions)
             .then(response => {
                 if (!response.ok) {

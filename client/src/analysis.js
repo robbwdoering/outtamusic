@@ -35,7 +35,7 @@ export const handleError = (err) => {
  * @returns {Promise<{albums: {features: null, ids: *[]}, artists: {features: null, ids: *[]}, genres: *[], playlists: {}, tracks: {features: null, ids: *[]}}>}
  */
 export const ingestIntoRecords = async (records, spotify, group, userId) => {
-    console.log("[performOnJoinAnalysis] ENTER", group, records)
+    console.log("[ingestIntoRecords] ENTER", group, records)
     if (!records) {
         records = {tracks: {}, artists: {}, albums: {}}
     }
@@ -53,7 +53,8 @@ export const ingestIntoRecords = async (records, spotify, group, userId) => {
             ids: records.albums.ids || [],
             features: null
         },
-        playlists: [...(records.playlists || []), {}],
+        playlists: [...(records.playlists || []), years.map(() => [])],
+        playlistIds: [...(records.playlistIds || []), years.map(() => null)],
         genres: records.genres || []
     };
 
@@ -63,6 +64,8 @@ export const ingestIntoRecords = async (records, spotify, group, userId) => {
         return null;
     }
     const userIdx = newRecords.playlists.length - 1;
+
+    console.log("DONE", playlists)
 
     // Ingest tracks for every playlist
     const trackLists = await getPlaylistTracks(spotify, userId, playlists);
@@ -109,7 +112,11 @@ export const ingestIntoRecords = async (records, spotify, group, userId) => {
     // Get features for every track, and ingest it all into a set of numeric arrays
     for (let yearIdx = 0; yearIdx < years.length; yearIdx++) {
         const year = years[yearIdx];
-        newRecords.playlists[userIdx][yearIdx] = [];
+        if (!playlists[yearIdx]) {
+            continue;
+        }
+
+        newRecords.playlistIds[userIdx][yearIdx] = playlists[yearIdx].id;
 
         const data = await getFeatures(spotify, year, trackLists[year].map(track => track.id), userId);
         if (!data) {
@@ -423,7 +430,7 @@ export const analyzeNewUserRecords = async (records, analysis, userId, group) =>
         }
     }
 
-    // Devide ratios by counts
+    // Divide ratios by counts
 
     return ret;
 };

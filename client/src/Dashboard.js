@@ -92,7 +92,7 @@ const Dashboard = props => {
      */
     const fetchRecordsAndAnalysis = async () => {
         if (!isLoading.current && !records && groupState.members.length > 0) {
-            console.log("[fetchRecordsAndAnalysis]", groupState.name);
+            console.log("[fetchRecordsAndAnalysis]", groupState.name, userId);
             isLoading.current = true;
 
             // Get the full lists of songs
@@ -118,7 +118,7 @@ const Dashboard = props => {
 
             // If this user is not yet reflected in the records
             const isNewUser = groupState.members.length > record.playlists.length;
-            const newUserIsMe = isNewUser && !record.playlists.some(playlist => playlist.userId === groupState.name);
+            const newUserIsMe = isNewUser && groupState.members[groupState.members.length - 1].id === userId;
             console.log("[fetchRecordsAndAnalysis]", isNewUser, newUserIsMe, groupState, record, analysis);
             if (newUserIsMe) {
                 const { newRecord, newAnalysis } = await addSelfToRecords(record, analysis);
@@ -210,16 +210,16 @@ const Dashboard = props => {
             </div>
             <div className={'list-row'}>
                 <span className={"list-label"}>PLAYLISTS</span>
-                <span>{member.playlists && member.playlists.map((e,i) => (
+                <span>{member.playlists && member.playlists.map((id, yearIdx) => (
                     <React.Fragment>
                         <Button
                             user_idx={userIdx}
-                            year_idx={years.indexOf(e.year)}
+                            year_idx={yearIdx}
                             onClick={changeFilters}
-                        >{e.year}</Button>j
+                        >{years[yearIdx]}</Button>j
                         <IconButton
                             size="small"
-                            onClick={() => window.open(e.href, '_blank')}
+                            onClick={() => window.open('https://open.spotify.com/playlist/'+id, '_blank')}
                         >
                             <LinkIcon/>
                         </IconButton>

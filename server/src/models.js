@@ -65,6 +65,7 @@ const RecordSchema = new Schema({
         features: [Schema.Types.Mixed]
     },
     playlists: [Schema.Types.Mixed],
+    playlistIds: [[String]],
     genres: [String]
 });
 const RecordModel = mongoose.model('Record', RecordSchema);
@@ -85,7 +86,8 @@ const GroupSchema = new Schema({
     matchScore: Number,
     passcode: String,
     record: ObjectId,
-    analysis: ObjectId
+    analysis: ObjectId,
+    playlists: [ String ]
 });
 const GroupModel = mongoose.model('Group', GroupSchema);
 module.exports.GroupModel = GroupModel;
@@ -101,12 +103,7 @@ const UserSchema = new Schema({
     },
     img: String,
     idExpiresAt: Date,
-    playlists: [
-        {
-            year: {type: Number, required: true},
-            id: {type: String, required: true}
-        }
-    ],
+    playlists: [String],
     groups: [String]
 });
 const UserModel = mongoose.model('User', UserSchema);

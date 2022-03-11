@@ -95,21 +95,26 @@ export const ingestArtist = (ret, artist) => {
  * @returns an array of objects, see endpoint docs
  */
 export const getPlaylists = async (spotify, userId) => {
+    if (!userId || !spotify) {
+        console.error("Passed empty args to getPlaylists");
+        return [];
+    }
     if (isCachePresent(userId)) {
         console.log("Fetching cached playlists...")
         return JSON.parse(window.localStorage.getItem('cached_playlist'));
     }
     return await spotify.getUserPlaylists(userId, {limit: 50})
         .then(data => {
-            const ret = data.items.reduce((acc, playlist) => {
+            const ret = years.map(() => null);
+            data.items.map((playlist) => {
                 if (playlist.name && playlist.name.match(/^Your Top Songs 20\d\d$/g)) {
                     const year = parseInt(playlist.name.split(' ')[3]);
-                    if (year && !Object.keys(acc).includes(year)) {
-                        acc[year] = playlist;
+                    const yearIdx = years.indexOf(year);
+                    if (yearIdx !== -1 && !ret[yearIdx]) {
+                        ret[yearIdx] = playlist;
                     }
                 }
-                return acc;
-            }, {});
+            }, );
 
             window.localStorage.setItem('cached_playlist_user', userId);
             window.localStorage.setItem('cached_playlist', JSON.stringify(ret));
@@ -129,7 +134,7 @@ export const getPlaylistTracks = async (spotify, userId, playlists) => {
     const ret = years.map((year) => []);
     for (const yearIdx in years) {
         const year = years[yearIdx];
-        if (!playlists[year]) {
+        if (!playlists[yearIdx]) {
             continue;
         }
 
@@ -141,7 +146,7 @@ export const getPlaylistTracks = async (spotify, userId, playlists) => {
             }
         }
 
-        await spotify.getPlaylistTracks(playlists[year].id, {})
+        await spotify.getPlaylistTracks(playlists[yearIdx].id, {})
             .then(data => {
                 // Get all non-local tracks within this playlist
                 ret[yearIdx] = data.items.map(item => item.is_local ? null : item.track).filter(e => e);
